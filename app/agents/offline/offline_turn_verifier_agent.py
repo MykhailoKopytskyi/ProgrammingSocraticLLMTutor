@@ -1,16 +1,16 @@
-from openai import OpenAI
+from typing import Any
 
-from ..common.config import AGENT_PROMPTS
-from ..common.message import Message
-from .agent import Agent
+from ...common.config import AGENT_PROMPTS
+from ...common.message import Message
+from ..agent import Agent
 
 
-class JudgeAgent(Agent):
-    llm: OpenAI
+class OfflineTurnVerifierAgent(Agent):
+    llm: Any
     model: str
     instructions: str
 
-    def __init__(self, llm: OpenAI, model: str, instructions: str):
+    def __init__(self, llm: Any, model: str, instructions: str):
         super().__init__(llm, model, instructions)
 
     def get_reply(
@@ -19,7 +19,7 @@ class JudgeAgent(Agent):
         response = self.llm.responses.create(
             model=self.model,
             instructions=self.instructions,
-            input=JudgeAgent.get_prompt(
+            input=OfflineTurnVerifierAgent.get_prompt(
                 history=history, tutor_responses=tutor_responses
             ),
         )

@@ -1,26 +1,115 @@
-from openai import OpenAI
+from __future__ import annotations
 
-from ..agents.agent import Agent
-from ..common.config import AGENT_PROMPTS
+from typing import Any
+
+from ..common.config import TUTOR_AGENT_INSTRUCTIONS
 from ..common.message import Message
+from ..common.models import (
+    BenchmarkCase,
+    PedagogicalPlan,
+    PlanProgress,
+    TutorTurn,
+)
+from .agent import Agent
 
 
 class TutorAgent(Agent):
-    llm: OpenAI
-    model: str
-    instructions: str
+    """
+    Simulates one tutor for one programming case and one fixed plan.
+    """
 
-    def __init__(self, llm: OpenAI, model: str, instructions: str):
-        super().__init__(llm, model, instructions)
-
-    def get_reply(self, history: list[Message]) -> Message:
-        response = self.llm.responses.create(
-            model=self.model,
-            instructions=self.instructions,
-            input=TutorAgent.get_prompt(history=history),
+    def __init__(
+        self,
+        llm: Any,
+        model: str,
+        case: BenchmarkCase,
+        plan: PedagogicalPlan,
+        instructions: str = TUTOR_AGENT_INSTRUCTIONS,
+    ):
+        personalized_instructions = self._build_instructions(
+            base_instructions=instructions,
+            plan=plan,
         )
-        return Message(role="tutor", content=response.output_text)
+
+        super().__init__(
+            llm=llm,
+            model=model,
+            instructions=personalized_instructions,
+        )
+
+        self.case = case
+        self.plan = plan
 
     @staticmethod
-    def get_prompt(history: list[Message]):
-        return AGENT_PROMPTS["tutor_agent"]["dialogue_prompt"](history)
+    def _build_instructions(
+        *,
+        base_instructions: str,
+        plan: PedagogicalPlan,
+    ) -> str:
+        return (
+            f"{base_instructions}\n\n"
+            "# Private pedagogical plan for this conversation\n\n"
+            "The following plan is authoritative private tutoring guidance. "
+            "Follow it throughout the conversation. Do not mention the plan, "
+            "its expected answers, bug identifiers, or disclosure levels to "
+            "the student.\n\n"
+            "<pedagogical_plan>\n"
+            f"{plan.model_dump_json(indent=2)}\n"
+            "</pedagogical_plan>"
+        )
+
+    def generate_turn(
+        self,
+        *,
+        history: list[Message],
+        progress: PlanProgress,
+        regeneration_feedback: str = "",
+    ) -> TutorTurn:
+        if not history:
+            raise ValueError("TutorAgent requires a student message in the history")
+
+        if history[-1]["role"] != "student":
+            raise ValueError(
+                "Conversation history must end with the latest student message"
+            )
+
+        prompt = (
+            "Generate the tutor's next conversational turn in response to "
+            "the final student message in the conversation history.\n\n"
+            "<programming_case>\n"
+            f"{self.case.visible_context(self.case.observed_failure)}\n"
+            "</programming_case>\n\n"
+            "<plan_progress>\n"
+            f"{progress.model_dump_json(indent=2)}\n"
+            "</plan_progress>\n\n"
+            "<conversation_history>\n"
+            f"{self.history_to_text(history)}\n"
+            "</conversation_history>"
+        )
+
+        if regeneration_feedback.strip():
+            prompt += (
+                "\n\n<regeneration_feedback>\n"
+                "The previous tutor candidate was rejected. Correct these "
+                "problems while responding to the same final student message:\n"
+                f"{regeneration_feedback.strip()}\n"
+                "</regeneration_feedback>"
+            )
+
+        return self._get_structured_output(
+            prompt=prompt,
+            output_type=TutorTurn,
+        )
+
+    def history_to_text(history: list[Message]) -> str:
+        if not history:
+            return "[empty]"
+
+        messages: list[str] = []
+
+        for index, message in enumerate(history, start=1):
+            messages.append(
+                f"[{index}] {message['role'].upper()}\n{message['content'].strip()}"
+            )
+
+        return "\n\n".join(messages)

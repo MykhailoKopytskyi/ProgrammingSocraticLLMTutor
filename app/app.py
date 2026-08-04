@@ -1,7 +1,7 @@
-from .common.config import CODE_MISCONCEPTIONS
+from .common.config import SAMPLE_CASES
 from .simulator.simulator import Simulator
 
-for misc in CODE_MISCONCEPTIONS:
-    simulator: Simulator = Simulator(misc)
+for case in SAMPLE_CASES:
+    simulator = Simulator(case)
     results = simulator.run()
     print(results)

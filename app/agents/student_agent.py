@@ -1,41 +1,88 @@
-from openai import OpenAI
+from __future__ import annotations
 
-from ..agents.agent import Agent
-from ..common.code_misconception import CodeMisconception
-from ..common.config import AGENT_PROMPTS
+from typing import Any
+
+from ..common.config import STUDENT_AGENT_INSTRUCTIONS
+from ..common.conversation import history_to_text
 from ..common.message import Message
+from ..common.models import (
+    BenchmarkCase,
+    StudentProfile,
+    StudentTurn,
+)
+from .agent import Agent
 
 
 class StudentAgent(Agent):
-    llm: OpenAI
-    model: str
-    instructions: str
-    misconception: CodeMisconception
+    """
+    Simulates one persistent student for one programming case.
+    """
 
     def __init__(
         self,
-        llm: OpenAI,
+        llm: Any,
         model: str,
-        instructions: str,
-        misconception: CodeMisconception,
+        case: BenchmarkCase,
+        profile: StudentProfile,
+        instructions: str = STUDENT_AGENT_INSTRUCTIONS,
     ):
-        super().__init__(llm, model, instructions)
-        self.misconception = misconception
-
-    def get_reply(self, history: list[Message]) -> Message:
-        response = self.llm.responses.create(
-            model=self.model,
-            instructions=self.instructions,
-            input=StudentAgent.get_prompt(history=history),
+        personalized_instructions = self._build_instructions(
+            base_instructions=instructions,
+            profile=profile,
         )
-        return Message(role="student", content=response.output_text)
 
-    # def __get_instruction(self):
-    #     return AGENT_PROMPTS["student_agent"]["dialogue_prompt"](self.misconception)
+        super().__init__(
+            llm=llm,
+            model=model,
+            instructions=personalized_instructions,
+        )
+
+        self.case = case
+        self.profile = profile
 
     @staticmethod
-    def get_prompt(history: list[Message]) -> str:
-        if len(history) == 0:
-            return AGENT_PROMPTS["student_agent"]["initial_dialogue_prompt"]
+    def _build_instructions(
+        *,
+        base_instructions: str,
+        profile: StudentProfile,
+    ) -> str:
+        return (
+            f"{base_instructions}\n\n"
+            "# Private student profile for this conversation\n\n"
+            "The following profile defines the student's persistent "
+            "incorrect beliefs. Use it only to control the student's "
+            "reasoning and behaviour.\n\n"
+            "<student_profile>\n"
+            f"{profile.model_dump_json(indent=2)}\n"
+            "</student_profile>"
+        )
 
-        return AGENT_PROMPTS["student_agent"]["dialogue_prompt"](history)
+    def generate_turn(
+        self,
+        history: list[Message],
+    ) -> StudentTurn:
+        if history:
+            task = (
+                "Generate the student's next response to the tutor's latest "
+                "message. Continue from the existing conversation."
+            )
+        else:
+            task = (
+                "Generate the first student turn. Briefly describe the "
+                "difficulty with the buggy program and ask the tutor for help."
+            )
+
+        prompt = (
+            f"{task}\n\n"
+            "<programming_case>\n"
+            f"{self.case.visible_context(self.case.observed_failure)}\n"
+            "</programming_case>\n\n"
+            "<conversation_history>\n"
+            f"{history_to_text}\n"
+            "</conversation_history>"
+        )
+
+        return self._get_structured_output(
+            prompt=prompt,
+            output_type=StudentTurn,
+        )

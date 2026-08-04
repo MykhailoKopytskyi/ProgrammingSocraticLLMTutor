@@ -4,12 +4,12 @@ from pathlib import Path
 from dotenv import load_dotenv
 from openai import OpenAI
 
-from ..agents.judge_agent import JudgeAgent
+from ..agents.offline.offline_turn_verifier_agent import OfflineJudgeAgent
 from ..agents.student_agent import StudentAgent
 from ..agents.tutor_agent import TutorAgent
-from ..common.code_misconception import CodeMisconception
 from ..common.config import AGENT_PROMPTS
 from ..common.message import Message
+from ..common.models import BenchmarkCase
 
 
 class Simulator:
@@ -17,10 +17,10 @@ class Simulator:
     llm: OpenAI
     student_agent: StudentAgent
     tutor_agent: TutorAgent
-    judge_agent: JudgeAgent
-    misconception: CodeMisconception
+    judge_agent: OfflineJudgeAgent
+    case: BenchmarkCase
 
-    def __init__(self, misconception: CodeMisconception):
+    def __init__(self, case: BenchmarkCase):
         ENV_PATH = Path(__file__).resolve().parent.parent.parent / ".env"
         load_dotenv(ENV_PATH)
 
@@ -41,21 +41,21 @@ class Simulator:
         if not judge_llm_model:
             raise ValueError("JUDGE_LLM_MODEL is not configured")
 
-        self.misconception = misconception
+        self.case = case
         self.llm = OpenAI(api_key=api_key)
         self.history = []
         self.student_agent = StudentAgent(
             llm=self.llm,
             model=student_llm_model,
-            instructions=AGENT_PROMPTS["student_agent"]["instructions"](misconception),
-            misconception=misconception,
+            instructions=AGENT_PROMPTS["student_agent"]["instructions"],
+            misconception=case,
         )
         self.tutor_agent = TutorAgent(
             llm=self.llm,
             model=tutor_llm_model,
             instructions=AGENT_PROMPTS["tutor_agent"]["instructions"],
         )
-        self.judge_agent = JudgeAgent(
+        self.judge_agent = OfflineJudgeAgent(
             llm=self.llm,
             model=judge_llm_model,
             instructions=AGENT_PROMPTS["judge_agent"]["instructions"],

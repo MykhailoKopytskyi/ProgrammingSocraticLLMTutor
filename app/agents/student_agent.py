@@ -1,15 +1,14 @@
 from __future__ import annotations
 
+from enum import Enum
 from typing import Any
+
+from pydantic import Field
 
 from ..common.config import STUDENT_AGENT_INSTRUCTIONS
 from ..common.conversation import history_to_text
 from ..common.message import Message
-from ..common.models import (
-    BenchmarkCase,
-    StudentProfile,
-    StudentTurn,
-)
+from ..common.models import BenchmarkCase, StrictModel
 from .agent import Agent
 
 
@@ -86,3 +85,42 @@ class StudentAgent(Agent):
             prompt=prompt,
             output_type=StudentTurn,
         )
+
+
+class StudentProfile(StrictModel):
+    misconceptions: list[str] = Field(min_length=1, max_length=3)
+
+
+class StudentTurn(StrictModel):
+    learner_state: LearnerState
+    reply: str
+    proposed_code: str
+
+    def to_message(self) -> Message:
+        """
+        Convert the turn into the visible message shown to the Tutor.
+        The hidden learner_state is deliberately excluded.
+        """
+
+        content = self.reply.strip()
+
+        if self.proposed_code.strip():
+            content += (
+                f"\n\nProposed code:\n```python\n{self.proposed_code.rstrip()}\n```"
+            )
+
+        return Message(
+            role="student",
+            content=content,
+        )
+
+
+class LearnerState(str, Enum):
+    START = "START"
+    CORRECT = "CORRECT"
+    INCORRECT = "INCORRECT"
+    QUESTION = "QUESTION"
+    COMPREHENSION = "COMPREHENSION"
+    CONFUSION = "CONFUSION"
+    IRRELEVANT = "IRRELEVANT"
+    END = "END"

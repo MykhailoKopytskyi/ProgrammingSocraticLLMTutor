@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from ...common.config import OFFLINE_PLANNER_INSTRUCTIONS
-from ...common.models import BenchmarkCase, PedagogicalPlan
+from ...common.models import BenchmarkCase, PlannerOutput
 from ..agent import Agent
 
 
@@ -25,14 +25,15 @@ class OfflinePlannerAgent(Agent):
             instructions=instructions,
         )
 
-    def generate_plan(
+    def generate_output(
         self,
         case: BenchmarkCase,
         observed_failure: str = "",
         regeneration_feedback: str = "",
-    ) -> PedagogicalPlan:
+    ) -> PlannerOutput:
         prompt = (
-            "Create a pedagogical plan for this Python debugging case.\n\n"
+            "Diagnose, repair, and create a pedagogical plan for this Python "
+            "debugging case.\n\n"
             "RUNTIME-VISIBLE CONTEXT:\n"
             f"{case.visible_context(observed_failure)}\n\n"
             "TRAINING-ONLY ORACLE CONTEXT:\n"
@@ -41,12 +42,13 @@ class OfflinePlannerAgent(Agent):
 
         if regeneration_feedback.strip():
             prompt += (
-                "\n\nThe previous plan was rejected by the oracle verifier. "
-                "Regenerate the complete plan while correcting these issues:\n"
+                "The previous planner output was rejected by the oracle verifier. "
+                "Regenerate the diagnosis, corrected code, and complete plan while "
+                "correcting these issues:\n"
                 f"{regeneration_feedback.strip()}"
             )
 
         return self._get_structured_output(
             prompt=prompt,
-            output_type=PedagogicalPlan,
+            output_type=PlannerOutput,
         )

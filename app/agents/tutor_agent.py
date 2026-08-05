@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from enum import Enum
 from typing import Any
 
 from ..common.config import TUTOR_AGENT_INSTRUCTIONS
@@ -8,9 +9,10 @@ from ..common.models import (
     BenchmarkCase,
     PedagogicalPlan,
     PlanProgress,
-    TutorTurn,
+    StrictModel,
 )
 from .agent import Agent
+from .student_agent import LearnerState
 
 
 class TutorAgent(Agent):
@@ -113,3 +115,23 @@ class TutorAgent(Agent):
             )
 
         return "\n\n".join(messages)
+
+
+class TutorTurn(StrictModel):
+    analysis_and_decision: str
+    learner_state: LearnerState
+    active_step_id: str
+    step_completed: bool
+    tutor_action: TutorAction
+    reply: str
+
+
+class TutorAction(str, Enum):
+    ASK = "ASK"
+    ADVANCE = "ADVANCE"
+    REASK = "REASK"
+    HINT = "HINT"
+    SIMPLIFY = "SIMPLIFY"
+    ANSWER_AND_STEER = "ANSWER_AND_STEER"
+    REFOCUS = "REFOCUS"
+    SUMMARY = "SUMMARY"

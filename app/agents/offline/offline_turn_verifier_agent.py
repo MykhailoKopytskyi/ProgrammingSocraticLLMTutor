@@ -1,8 +1,14 @@
+from __future__ import annotations
+
 from typing import Any
 
-from ...common.config import AGENT_PROMPTS
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+from ...common.config import OFFLINE_TURN_VERIFIER_INSTRUCTIONS
 from ...common.message import Message
+from ...common.models import BenchmarkCase, PedagogicalPlan, PlanProgress, StrictModel
 from ..agent import Agent
+from ..tutor_agent import TutorTurn
 
 
 class OfflineTurnVerifierAgent(Agent):
@@ -10,21 +16,94 @@ class OfflineTurnVerifierAgent(Agent):
     model: str
     instructions: str
 
-    def __init__(self, llm: Any, model: str, instructions: str):
-        super().__init__(llm, model, instructions)
-
-    def get_reply(
-        self, history: list[Message], tutor_responses: list[Message]
-    ) -> Message:
-        response = self.llm.responses.create(
-            model=self.model,
-            instructions=self.instructions,
-            input=OfflineTurnVerifierAgent.get_prompt(
-                history=history, tutor_responses=tutor_responses
-            ),
+    def __init__(
+        self,
+        llm: Any,
+        model: str,
+        instructions: str = OFFLINE_TURN_VERIFIER_INSTRUCTIONS,
+    ):
+        super().__init__(
+            llm=llm,
+            model=model,
+            instructions=instructions,
         )
-        return Message(role="judge", content=response.output_text)
+
+    def verify(
+        self,
+        *,
+        case: BenchmarkCase,
+        plan: PedagogicalPlan,
+        progress: PlanProgress,
+        history: list[Message],
+        candidate: TutorTurn,
+    ) -> TutorHardCheck:
+        if not history:
+            raise ValueError("OfflineTurnVerifierAgent requires conversation history")
+
+        if history[-1]["role"] != "student":
+            raise ValueError(
+                "History must end with the Student message to which the "
+                "candidate responds"
+            )
+
+        prompt = (
+            "Evaluate the proposed Tutor turn before it is added to the "
+            "conversation.\n\n"
+            "RUNTIME-VISIBLE CASE:\n"
+            f"{case.visible_context()}\n\n"
+            "TRAINING-ONLY ORACLE:\n"
+            f"{case.oracle_context()}\n\n"
+            "FIXED PEDAGOGICAL PLAN:\n"
+            f"{plan.model_dump_json(indent=2)}\n\n"
+            "CURRENT PLAN PROGRESS:\n"
+            f"{progress.model_dump_json(indent=2)}\n\n"
+            "ACCEPTED CONVERSATION HISTORY:\n"
+            f"{self._history_to_text(history)}\n\n"
+            "CANDIDATE TUTOR TURN:\n"
+            f"{candidate.model_dump_json(indent=2)}"
+        )
+
+        return self._get_structured_output(
+            prompt=prompt,
+            output_type=TutorHardCheck,
+        )
 
     @staticmethod
-    def get_prompt(history: list[Message], tutor_responses: list[Message]):
-        return AGENT_PROMPTS["judge_agent"]["dialogue_prompt"](history, tutor_responses)
+    def _history_to_text(history: list[Message]) -> str:
+        messages: list[str] = []
+
+        for index, message in enumerate(history, start=1):
+            messages.append(
+                f"[{index}] {message['role'].upper()}\n{message['content'].strip()}"
+            )
+
+        return "\n\n".join(messages)
+
+
+class TutorHardCheck(StrictModel):
+    technical_error: bool
+    learner_state_mismatch: bool
+    wrong_active_step: bool
+    unjustified_step_completion: bool
+    latest_student_turn_not_addressed: bool
+    solution_leakage: bool
+    malformed_or_incoherent: bool
+    serious_repetition: bool
+
+    reasons: list[str] = Field(default_factory=list)
+    regeneration_feedback: str | None = None
+
+    @property
+    def accepted(self) -> bool:
+        return not any(
+            (
+                self.technical_error,
+                self.learner_state_mismatch,
+                self.wrong_active_step,
+                self.unjustified_step_completion,
+                self.latest_student_turn_not_addressed,
+                self.solution_leakage,
+                self.malformed_or_incoherent,
+                self.serious_repetition,
+            )
+        )

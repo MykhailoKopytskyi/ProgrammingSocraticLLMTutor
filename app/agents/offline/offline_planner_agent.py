@@ -28,14 +28,13 @@ class OfflinePlannerAgent(Agent):
     def generate_output(
         self,
         case: BenchmarkCase,
-        observed_failure: str = "",
         regeneration_feedback: str = "",
     ) -> PlannerOutput:
         prompt = (
             "Diagnose, repair, and create a pedagogical plan for this Python "
             "debugging case.\n\n"
             "RUNTIME-VISIBLE CONTEXT:\n"
-            f"{case.visible_context(observed_failure)}\n\n"
+            f"{case.visible_context()}\n\n"
             "TRAINING-ONLY ORACLE CONTEXT:\n"
             f"{case.oracle_context()}"
         )

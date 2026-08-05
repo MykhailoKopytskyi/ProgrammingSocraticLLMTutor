@@ -26,13 +26,12 @@ class OfflinePlanVerifierAgent(Agent):
         self,
         case: BenchmarkCase,
         planner_output: PlannerOutput,
-        observed_failure: str = "",
     ) -> PlanVerification:
         prompt = (
             "Verify the candidate diagnosis, corrected code, and pedagogical "
             "plan.\n\n"
             "RUNTIME-VISIBLE CONTEXT:\n"
-            f"{case.visible_context(observed_failure)}\n\n"
+            f"{case.visible_context()}\n\n"
             "TRAINING-ONLY ORACLE CONTEXT:\n"
             f"{case.oracle_context()}\n\n"
             "CANDIDATE PLANNER OUTPUT:\n"

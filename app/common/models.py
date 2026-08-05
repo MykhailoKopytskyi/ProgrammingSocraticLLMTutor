@@ -49,15 +49,12 @@ class BenchmarkCase(StrictModel):
             raise ValueError(f"Empty required fields: {', '.join(missing)}")
         return self
 
-    def visible_context(self, observed_failure: str | None = None) -> str:
+    def visible_context(self) -> str:
         """
         Information available to the Planner and Tutor.
         Excludes annotated bugs, fixes and corrected code
         """
 
-        failure = (
-            observed_failure if observed_failure is not None else self.observed_failure
-        )
         return (
             f"Problem statement:\n"
             f"{self.problem_statement.strip()}\n\n"
@@ -70,7 +67,7 @@ class BenchmarkCase(StrictModel):
             f"{self.tests.rstrip()}\n"
             f"```\n\n"
             f"Observed test output:\n"
-            f"{failure.strip() or '[not executed]'}\n\n"
+            f"{self.observed_failure.strip() or '[not executed]'}\n\n"
             f"Student question/confusion:\n"
             f"{self.student_question.strip()}"
         )

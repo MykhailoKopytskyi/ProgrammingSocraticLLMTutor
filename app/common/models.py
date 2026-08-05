@@ -17,13 +17,13 @@ class BenchmarkCase(StrictModel):
     case_id: str
     problem_statement: str
     buggy_code: str
-    tests: str = ""
+    tests: str
     student_question: str
-    observed_failure: str = ""
+    observed_failure: str
 
     bugs: list[BugAnnotation] = Field(min_length=1, max_length=3)
 
-    correct_code: str = ""
+    correct_code: str
     student_misconceptions: list[str] = Field(default_factory=list, max_length=3)
 
     source: str = "manual"
@@ -35,8 +35,9 @@ class BenchmarkCase(StrictModel):
             "case_id": self.case_id,
             "problem_statement": self.problem_statement,
             "buggy_code": self.buggy_code,
-            # "tests": self.tests,
-            # "correct_code": self.correct_code,
+            "tests": self.tests,
+            "observed_failure": self.observed_failure,
+            "correct_code": self.correct_code,
             "student_question": self.student_question,
         }
         missing = []
@@ -175,3 +176,15 @@ class AppliedFix(StrictModel):
 class ReferenceRepair(StrictModel):
     corrected_code: str
     applied_fixes: list[AppliedFix]
+
+    @model_validator(mode="after")
+    def validate_repair(self) -> ReferenceRepair:
+        if not self.corrected_code.strip():
+            raise ValueError("corrected_code must not be empty")
+
+        bug_ids = [applied_fix.bug_id for applied_fix in self.applied_fixes]
+
+        if len(bug_ids) != len(set(bug_ids)):
+            raise ValueError("applied_fixes must use unique bug IDs")
+
+        return self

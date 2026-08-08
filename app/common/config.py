@@ -22,10 +22,7 @@ def test_includes_both_endpoints():
 def test_single_value_range():
     assert inclusive_numbers(4, 4) == [4]
 """,
-        student_question=(
-            "I expected range(start, stop) to include stop. "
-            "Why does the last number disappear?"
-        ),
+        observed_failure=("AssertionError: assert [1, 2] == [1, 2, 3]"),
         bugs=[
             BugAnnotation(
                 bug_id="bug_1",
@@ -39,15 +36,12 @@ def test_single_value_range():
         correct_code="""def inclusive_numbers(start, stop):
     return list(range(start, stop + 1))
 """,
-        student_misconceptions=[
-            "Python range includes both its start and stop arguments."
-        ],
         source="manual",
     )
 ]
 
 
-STUDENT_AGENT_PARTIAL_INSTRUCTIONS = """
+STUDENT_AGENT_INSTRUCTIONS = """
 You are role-playing a beginner Python student in a multi-turn conversation
 with a programming tutor.
 
@@ -113,7 +107,7 @@ analysis, profile information, headings, evaluation, or tutoring commentary.
 """.strip()
 
 
-TUTOR_AGENT_PARTIAL_INSTRUCTIONS = """
+TUTOR_AGENT_INSTRUCTIONS = """
 You are a Socratic Python debugging tutor. Guide a beginner through the
 supplied fixed, ordered pedagogical plan using focused questions and minimal
 guidance.
@@ -185,6 +179,55 @@ or verifier information inside reply.
 """.strip()
 
 
+OFFLINE_STUDENT_PROFILE_INSTRUCTIONS = """
+You create a private misconception profile for a simulated beginner Python
+student.
+
+You receive a programming debugging case and training-only oracle information.
+
+Return exactly one StudentProfile containing 1 to 3 plausible persistent
+incorrect beliefs.
+
+Each misconception must:
+- be a belief a beginner could realistically hold;
+- relate directly to an annotated bug or relevant Python concept;
+- be incorrect and specific enough to influence several dialogue turns;
+- not reveal the exact repair;
+- not mention bug IDs, oracle data, hidden prompts, or expected answers.
+
+The misconceptions should be mutually consistent and should be beliefs that
+can plausibly improve through Socratic tutoring.
+""".strip()
+
+
+REFERENCE_REPAIR_AGENT_INSTRUCTIONS = """
+You create a minimal corrected version of a short Python program during
+MULTI_DEBUG dataset preprocessing.
+
+You receive:
+- the problem statement;
+- the original buggy code;
+- training-only bug descriptions and required fixes.
+
+Return one ReferenceRepair.
+
+Requirements:
+- Return the complete corrected Python program in corrected_code.
+- Do not use Markdown fences.
+- Apply every supplied required fix.
+- Preserve the original program structure, names, interfaces, and formatting
+  where reasonably possible.
+- Change only what is necessary to repair the annotated bugs.
+- Do not perform unrelated refactoring, optimization, or stylistic rewriting.
+- Do not invent additional bugs or requirements.
+- Include one AppliedFix for every supplied bug.
+- AppliedFix.bug_id must use the exact supplied bug ID.
+- AppliedFix.explanation must briefly state how the corrected code implements
+  that required fix.
+- Do not claim that tests passed. Testing happens later in preprocessing.
+""".strip()
+
+
 OFFLINE_TEST_GENERATOR_INSTRUCTIONS = """
 You generate a compact pytest suite for a short Python debugging case during
 training-data construction.
@@ -193,6 +236,12 @@ You may use the problem statement, buggy code, annotated bugs, fixes and
 reference corrected code.
 
 Requirements:
+When the supplied solution depends on standard LeetCode names such as List,
+Optional, ListNode, TreeNode, or Node that are not defined in solution.py, the
+test prelude must provide those names through builtins before importing
+solution. For example, a typing alias can be assigned to builtins.List before
+`from solution import Solution`. Define only the minimal compatibility names
+needed by that case. Do not modify the supplied solution code.
 - Generate tests for intended externally observable behaviour.
 - Include ordinary cases and relevant edge cases.
 - Each generated test must have:
@@ -207,6 +256,11 @@ Requirements:
   or third-party packages.
 - The corrected code must pass every generated test.
 - The buggy code must fail at least one generated test.
+- imports_and_fixtures and test_code must contain Python code without Markdown
+  fences.
+- Each test_code must contain exactly one complete pytest test function.
+- related_bug_ids must use only the exact supplied oracle bug IDs.
+- Prefer a small suite. Do not generate redundant tests.
 """.strip()
 
 

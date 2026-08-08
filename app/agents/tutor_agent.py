@@ -4,6 +4,7 @@ from enum import Enum
 from typing import Any
 
 from ..common.config import TUTOR_AGENT_INSTRUCTIONS
+from ..common.conversation import Conversation
 from ..common.message import Message
 from ..common.models import (
     BenchmarkCase,
@@ -16,9 +17,7 @@ from .student_agent import LearnerState
 
 
 class TutorAgent(Agent):
-    """
-    Simulates one tutor for one programming case and one fixed plan.
-    """
+    """Simulates one tutor for one programming case and one fixed plan."""
 
     def __init__(
         self,
@@ -53,8 +52,7 @@ class TutorAgent(Agent):
             "# Private pedagogical plan for this conversation\n\n"
             "The following plan is authoritative private tutoring guidance. "
             "Follow it throughout the conversation. Do not mention the plan, "
-            "its expected answers, bug identifiers, or disclosure levels to "
-            "the student.\n\n"
+            "its expected answers, or bug identifiers to the student.\n\n"
             "<pedagogical_plan>\n"
             f"{plan.model_dump_json(indent=2)}\n"
             "</pedagogical_plan>"
@@ -63,29 +61,31 @@ class TutorAgent(Agent):
     def generate_turn(
         self,
         *,
-        history: list[Message],
+        conversation: Conversation,
         progress: PlanProgress,
         regeneration_feedback: str = "",
     ) -> TutorTurn:
-        if not history:
-            raise ValueError("TutorAgent requires a student message in the history")
+        last_message = conversation.last_message
 
-        if history[-1]["role"] != "student":
+        if last_message is None:
+            raise ValueError("TutorAgent requires a student message")
+
+        if last_message["role"] != "student":
             raise ValueError(
-                "Conversation history must end with the latest student message"
+                "TutorAgent conversation must end with the latest student message"
             )
 
         prompt = (
             "Generate the tutor's next conversational turn in response to "
             "the final student message in the conversation history.\n\n"
             "<programming_case>\n"
-            f"{self.case.visible_context(self.case.observed_failure)}\n"
+            f"{self.case.visible_context()}\n"
             "</programming_case>\n\n"
             "<plan_progress>\n"
             f"{progress.model_dump_json(indent=2)}\n"
             "</plan_progress>\n\n"
             "<conversation_history>\n"
-            f"{self.history_to_text(history)}\n"
+            f"{conversation.to_text()}\n"
             "</conversation_history>"
         )
 
@@ -103,19 +103,6 @@ class TutorAgent(Agent):
             output_type=TutorTurn,
         )
 
-    def history_to_text(history: list[Message]) -> str:
-        if not history:
-            return "[empty]"
-
-        messages: list[str] = []
-
-        for index, message in enumerate(history, start=1):
-            messages.append(
-                f"[{index}] {message['role'].upper()}\n{message['content'].strip()}"
-            )
-
-        return "\n\n".join(messages)
-
 
 class TutorTurn(StrictModel):
     analysis_and_decision: str
@@ -124,6 +111,12 @@ class TutorTurn(StrictModel):
     step_completed: bool
     tutor_action: TutorAction
     reply: str
+
+    def to_message(self) -> Message:
+        return Message(
+            role="tutor",
+            content=self.reply.strip(),
+        )
 
 
 class TutorAction(str, Enum):

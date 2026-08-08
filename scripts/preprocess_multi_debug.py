@@ -1,0 +1,85 @@
+from __future__ import annotations
+
+import os
+from pathlib import Path
+
+from app.agents.offline.offline_test_generator_agent import (
+    OfflineTestGeneratorAgent,
+)
+from app.datasets.multi_debug_loader import (
+    MultiDebugLoader,
+)
+from app.datasets.store import (
+    BenchmarkCaseStore,
+)
+from app.execution.code_runner import (
+    DockerCodeRunner,
+)
+from app.preprocessing.pipeline import (
+    PreprocessingPipeline,
+)
+from dotenv import load_dotenv
+from openai import OpenAI
+
+
+class MultiDebugPreprocessingApp:
+    _loader: MultiDebugLoader
+    _store: BenchmarkCaseStore
+    _pipeline: PreprocessingPipeline
+
+    def __init__(self):
+        load_dotenv()
+
+        self._loader = MultiDebugLoader(Path("data/raw/multi_debug"))
+
+        self._store = BenchmarkCaseStore(Path("data/processed/multi_debug.jsonl"))
+
+        client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
+
+        test_generator = OfflineTestGeneratorAgent(
+            llm=client,
+            model=os.environ["DATA_LLM_MODEL"],
+        )
+
+        self._pipeline = PreprocessingPipeline(
+            test_generator=(test_generator),
+            code_runner=(DockerCodeRunner()),
+            max_attempts=3,
+        )
+
+    def run(self) -> None:
+        raw_cases = self._loader.load(limit=self._max_cases())
+
+        completed = self._store.completed_case_ids()
+
+        for index, raw_case in enumerate(
+            raw_cases,
+            start=1,
+        ):
+            if raw_case.case_id in completed:
+                continue
+
+            print(f"[{index}/{len(raw_cases)}] {raw_case.case_id}")
+
+            try:
+                case = self._pipeline.process(raw_case)
+            except Exception as error:
+                print(f"FAILED: {type(error).__name__}: {error}")
+                continue
+
+            self._store.append(case)
+
+            print("accepted")
+
+    @staticmethod
+    def _max_cases() -> int | None:
+        value = os.getenv(
+            "MAX_CASES",
+            "",
+        ).strip()
+
+        return int(value) if value else None
+
+
+if __name__ == "__main__":
+    MultiDebugPreprocessingApp().run()

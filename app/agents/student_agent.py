@@ -6,16 +6,14 @@ from typing import Any
 from pydantic import Field
 
 from ..common.config import STUDENT_AGENT_INSTRUCTIONS
-from ..common.conversation import history_to_text
+from ..common.conversation import Conversation
 from ..common.message import Message
 from ..common.models import BenchmarkCase, StrictModel
 from .agent import Agent
 
 
 class StudentAgent(Agent):
-    """
-    Simulates one persistent student for one programming case.
-    """
+    """Simulates one persistent student for one programming case."""
 
     def __init__(
         self,
@@ -58,26 +56,33 @@ class StudentAgent(Agent):
 
     def generate_turn(
         self,
-        history: list[Message],
+        conversation: Conversation,
     ) -> StudentTurn:
-        if history:
-            task = (
-                "Generate the student's next response to the tutor's latest "
-                "message. Continue from the existing conversation."
-            )
-        else:
+        if conversation.is_empty:
             task = (
                 "Generate the first student turn. Briefly describe the "
                 "difficulty with the buggy program and ask the tutor for help."
+            )
+        else:
+            last_message = conversation.last_message
+
+            if last_message is None or last_message["role"] != "tutor":
+                raise ValueError(
+                    "StudentAgent conversation must end with the latest tutor message"
+                )
+
+            task = (
+                "Generate the student's next response to the tutor's latest "
+                "message. Continue from the existing conversation."
             )
 
         prompt = (
             f"{task}\n\n"
             "<programming_case>\n"
-            f"{self.case.visible_context(self.case.observed_failure)}\n"
+            f"{self.case.visible_context()}\n"
             "</programming_case>\n\n"
             "<conversation_history>\n"
-            f"{history_to_text}\n"
+            f"{conversation.to_text()}\n"
             "</conversation_history>"
         )
 
@@ -94,13 +99,10 @@ class StudentProfile(StrictModel):
 class StudentTurn(StrictModel):
     learner_state: LearnerState
     reply: str
-    proposed_code: str
+    proposed_code: str = ""
 
     def to_message(self) -> Message:
-        """
-        Convert the turn into the visible message shown to the Tutor.
-        The hidden learner_state is deliberately excluded.
-        """
+        """Convert the turn into the visible message shown to the Tutor."""
 
         content = self.reply.strip()
 

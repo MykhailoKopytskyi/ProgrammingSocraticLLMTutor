@@ -18,13 +18,11 @@ class BenchmarkCase(StrictModel):
     problem_statement: str
     buggy_code: str
     tests: str
-    student_question: str
     observed_failure: str
 
     bugs: list[BugAnnotation] = Field(min_length=1, max_length=3)
 
     correct_code: str
-    student_misconceptions: list[str] = Field(default_factory=list, max_length=3)
 
     source: str = "manual"
 
@@ -38,7 +36,6 @@ class BenchmarkCase(StrictModel):
             "tests": self.tests,
             "observed_failure": self.observed_failure,
             "correct_code": self.correct_code,
-            "student_question": self.student_question,
         }
         missing = []
 
@@ -69,8 +66,6 @@ class BenchmarkCase(StrictModel):
             f"```\n\n"
             f"Observed test output:\n"
             f"{self.observed_failure.strip() or '[not executed]'}\n\n"
-            f"Student question/confusion:\n"
-            f"{self.student_question.strip()}"
         )
 
     def oracle_context(self) -> str:
@@ -105,7 +100,7 @@ class PlanStep(StrictModel):
 class PedagogicalPlan(StrictModel):
     plan_summary: str
 
-    steps: list[PlanStep] = Field(min_length=2, max_length=10)
+    steps: list[PlanStep] = Field(min_length=2, max_length=7)
 
     @model_validator(mode="after")
     def validate_unique_step_ids(self) -> PedagogicalPlan:
@@ -165,6 +160,16 @@ class GeneratedTest(StrictModel):
 class GeneratedTests(StrictModel):
     imports_and_fixtures: str = ""
     tests: list[GeneratedTest] = Field(min_length=1)
+
+    def to_pytest_file(self) -> str:
+        sections = []
+
+        if self.imports_and_fixtures.strip():
+            sections.append(self.imports_and_fixtures.strip())
+
+        sections.extend(test.test_code.strip() for test in self.tests)
+
+        return "\n\n".join(sections).rstrip() + "\n"
 
 
 # If the dataset misses corrected code + its explanation, then we can automatically generate them

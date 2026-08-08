@@ -2,20 +2,16 @@ from __future__ import annotations
 
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import Field
 
 from ...common.config import OFFLINE_TURN_VERIFIER_INSTRUCTIONS
-from ...common.message import Message
+from ...common.conversation import Conversation
 from ...common.models import BenchmarkCase, PedagogicalPlan, PlanProgress, StrictModel
 from ..agent import Agent
 from ..tutor_agent import TutorTurn
 
 
 class OfflineTurnVerifierAgent(Agent):
-    llm: Any
-    model: str
-    instructions: str
-
     def __init__(
         self,
         llm: Any,
@@ -34,15 +30,17 @@ class OfflineTurnVerifierAgent(Agent):
         case: BenchmarkCase,
         plan: PedagogicalPlan,
         progress: PlanProgress,
-        history: list[Message],
+        conversation: Conversation,
         candidate: TutorTurn,
     ) -> TutorHardCheck:
-        if not history:
+        last_message = conversation.last_message
+
+        if last_message is None:
             raise ValueError("OfflineTurnVerifierAgent requires conversation history")
 
-        if history[-1]["role"] != "student":
+        if last_message["role"] != "student":
             raise ValueError(
-                "History must end with the Student message to which the "
+                "Conversation must end with the Student message to which the "
                 "candidate responds"
             )
 
@@ -58,7 +56,7 @@ class OfflineTurnVerifierAgent(Agent):
             "CURRENT PLAN PROGRESS:\n"
             f"{progress.model_dump_json(indent=2)}\n\n"
             "ACCEPTED CONVERSATION HISTORY:\n"
-            f"{self._history_to_text(history)}\n\n"
+            f"{conversation.to_text()}\n\n"
             "CANDIDATE TUTOR TURN:\n"
             f"{candidate.model_dump_json(indent=2)}"
         )
@@ -67,17 +65,6 @@ class OfflineTurnVerifierAgent(Agent):
             prompt=prompt,
             output_type=TutorHardCheck,
         )
-
-    @staticmethod
-    def _history_to_text(history: list[Message]) -> str:
-        messages: list[str] = []
-
-        for index, message in enumerate(history, start=1):
-            messages.append(
-                f"[{index}] {message['role'].upper()}\n{message['content'].strip()}"
-            )
-
-        return "\n\n".join(messages)
 
 
 class TutorHardCheck(StrictModel):

@@ -1,49 +1,56 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
+
 from .message import Message
-from .models import StudentTurn
 
 
-def history_to_text(
-    history: list[Message],
-) -> str:
-    """
-    Convert accepted visible conversation messages into prompt text.
+class Conversation:
+    """Owns the visible ordered message history for one tutoring dialogue."""
 
-    Metadata is deliberately excluded because it may contain hidden labels
-    or other offline-only information.
-    """
+    def __init__(
+        self,
+        messages: Iterable[Message] | None = None,
+    ):
+        self._messages: list[Message] = list(messages or [])
 
-    if not history:
-        return "[No previous messages]"
+    @property
+    def messages(self) -> list[Message]:
+        """Return a copy so callers cannot mutate history without add()."""
 
-    formatted_messages: list[str] = []
+        return list(self._messages)
 
-    for index, message in enumerate(history, start=1):
-        role = message["role"].upper()
+    @property
+    def last_message(self) -> Message | None:
+        if not self._messages:
+            return None
+
+        return self._messages[-1]
+
+    @property
+    def is_empty(self) -> bool:
+        return not self._messages
+
+    def add(self, message: Message) -> None:
+        role = message["role"].strip()
         content = message["content"].strip()
 
-        formatted_messages.append(f"[{index}] {role}\n{content}")
+        if not role:
+            raise ValueError("message role must not be empty")
 
-    return "\n\n".join(formatted_messages)
+        if not content:
+            raise ValueError("message content must not be empty")
 
+        self._messages.append(message)
 
-def student_turn_to_message(
-    turn: StudentTurn,
-) -> Message:
-    """
-    Convert a structured StudentTurn into the visible message stored in
-    conversation history.
+    def to_text(self) -> str:
+        if not self._messages:
+            return "[empty]"
 
-    learner_state is deliberately excluded because it is hidden from the Tutor.
-    """
+        return "\n\n".join(
+            f"[{index}] {message['role'].upper()}\n{message['content'].strip()}"
+            for index, message in enumerate(self._messages, start=1)
+        )
 
-    content = turn.reply.strip()
-
-    if turn.proposed_code.strip():
-        content += f"\n\nProposed code:\n```python\n{turn.proposed_code.rstrip()}\n```"
-
-    return Message(
-        role="student",
-        content=content,
-    )
+    def __len__(self) -> int:
+        return len(self._messages)

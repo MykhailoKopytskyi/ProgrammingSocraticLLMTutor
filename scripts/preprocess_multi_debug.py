@@ -23,24 +23,23 @@ from openai import OpenAI
 
 
 class MultiDebugPreprocessingApp:
+    """
+    Loads the raw cases, generates tests for them, validates and saves everything to an output file
+    """
+
     _loader: MultiDebugLoader
     _store: BenchmarkCaseStore
     _pipeline: PreprocessingPipeline
 
     def __init__(self):
         load_dotenv()
-
         self._loader = MultiDebugLoader(Path("data/raw/multi_debug"))
-
         self._store = BenchmarkCaseStore(Path("data/processed/multi_debug.jsonl"))
-
         client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
-
         test_generator = OfflineTestGeneratorAgent(
             llm=client,
             model=os.environ["DATA_LLM_MODEL"],
         )
-
         self._pipeline = PreprocessingPipeline(
             test_generator=(test_generator),
             code_runner=(DockerCodeRunner()),
@@ -48,10 +47,10 @@ class MultiDebugPreprocessingApp:
         )
 
     def run(self) -> None:
-        raw_cases = self._loader.load(limit=self._max_cases())
-
-        completed = self._store.completed_case_ids()
-
+        raw_cases = self._loader.load(
+            limit=self._max_cases()
+        )  # parse the raw .py and .txt files
+        completed = self._store.completed_case_ids()  # Loads the case_ids of the examples that were already processed. Useful for resuming processing
         for index, raw_case in enumerate(
             raw_cases,
             start=1,
@@ -60,15 +59,10 @@ class MultiDebugPreprocessingApp:
                 continue
 
             print(f"[{index}/{len(raw_cases)}] {raw_case.case_id}")
-
-            try:
-                case = self._pipeline.process(raw_case)
-            except Exception as error:
-                print(f"FAILED: {type(error).__name__}: {error}")
-                continue
-
+            case = self._pipeline.process(
+                raw_case
+            )  # I.e. generate tests and check that the correct code passes them and buggy one fails
             self._store.append(case)
-
             print("accepted")
 
     @staticmethod
@@ -77,7 +71,6 @@ class MultiDebugPreprocessingApp:
             "MAX_CASES",
             "",
         ).strip()
-
         return int(value) if value else None
 
 

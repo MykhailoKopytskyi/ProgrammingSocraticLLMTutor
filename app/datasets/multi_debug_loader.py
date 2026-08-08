@@ -10,7 +10,6 @@ from .base import DatasetLoader, RawBenchmarkCase
 class MultiDebugLoader(DatasetLoader):
     """
     Loads TreeInstruct MULTI_DEBUG and normalizes it into RawBenchmarkCase.
-
     MULTI_DEBUG-specific parsing is completely encapsulated here.
     """
 
@@ -25,7 +24,6 @@ class MultiDebugLoader(DatasetLoader):
         root: str | Path,
     ):
         self._root = self._resolve_dataset_root(Path(root))
-
         self._reference_directory = self._root / "2bug-MULTI-BUG" / "data_txts"
 
         if not self._reference_directory.is_dir():
@@ -43,7 +41,6 @@ class MultiDebugLoader(DatasetLoader):
             raise ValueError("limit must be at least 1")
 
         cases: list[RawBenchmarkCase] = []
-
         for directory_name, bug_count in self._VARIANTS:
             directory = self._root / directory_name
 
@@ -57,7 +54,6 @@ class MultiDebugLoader(DatasetLoader):
                         bug_count=bug_count,
                     )
                 )
-
                 if limit is not None and len(cases) >= limit:
                     return cases
 
@@ -85,7 +81,6 @@ class MultiDebugLoader(DatasetLoader):
         raw_path: Path,
     ) -> RawBenchmarkCase:
         text = raw_path.read_text(encoding="utf-8")
-
         problem = self._clean_problem(
             self._extract_tag(
                 text=text,
@@ -115,9 +110,7 @@ class MultiDebugLoader(DatasetLoader):
         )
 
         reference_path = self._reference_directory / f"{raw_path.name}.txt"
-
         reference_text = reference_path.read_text(encoding="utf-8")
-
         correct_code = self._strip_line_numbers(
             self._extract_txt_field(
                 text=reference_text,
@@ -145,9 +138,7 @@ class MultiDebugLoader(DatasetLoader):
         bug_count: int,
     ) -> RawBenchmarkCase:
         processed_path = raw_path.parent / "data_txts" / f"{raw_path.name}.txt"
-
         text = processed_path.read_text(encoding="utf-8")
-
         problem = self._extract_txt_field(
             text=text,
             field="problem",
@@ -208,7 +199,6 @@ class MultiDebugLoader(DatasetLoader):
         source: Path,
     ) -> tuple[BugAnnotation, ...]:
         fix_lines = self._non_empty_lines(fixes)
-
         if len(fix_lines) != expected_count:
             raise ValueError(
                 f"{source}: expected {expected_count} bug fixes, found {len(fix_lines)}"
@@ -216,12 +206,9 @@ class MultiDebugLoader(DatasetLoader):
 
         description_lines = self._non_empty_lines(descriptions)
 
-        # MULTI_DEBUG bug_desc is inconsistent.
-        # If it cannot be aligned safely, use the
-        # corresponding authoritative fix as description.
+        # MULTI_DEBUG bug_desc is inconsistent. If it cannot be aligned safely, use then corresponding authoritative fix as description.
         if len(description_lines) != expected_count:
             description_lines = fix_lines
-
         return tuple(
             BugAnnotation(
                 bug_id=f"bug_{index}",
@@ -280,7 +267,6 @@ class MultiDebugLoader(DatasetLoader):
             return ""
 
         value = match.group(1).strip()
-
         if required and not value:
             raise ValueError(f"{source}: <{tag}> is empty")
 

@@ -6,6 +6,11 @@ from ..common.models import BenchmarkCase
 
 
 class BenchmarkCaseStore:
+    """
+    Responsible for writing the BenchmarkCase to the output file.
+    Also, responsible for loading the caseIDs of the cases that were already processed
+    """
+
     def __init__(
         self,
         path: str | Path,

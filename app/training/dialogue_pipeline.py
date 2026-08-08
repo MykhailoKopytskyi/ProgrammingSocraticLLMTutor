@@ -82,11 +82,8 @@ class DialogueGenerationPipeline:
                 StudentTurnRecord(
                     turn=student_turn,
                     code_execution=(
-                        CodeExecutionRecord.from_result(latest_code_execution)
-                        if (
-                            student_turn.proposed_code.strip()
-                            and latest_code_execution is not None
-                        )
+                        CodeExecutionRecord.from_result(student_execution)
+                        if student_execution is not None
                         else None
                     ),
                 )
@@ -152,6 +149,7 @@ class DialogueGenerationPipeline:
             candidate = tutor_agent.generate_turn(
                 conversation=conversation,
                 progress=progress,
+                latest_code_execution=latest_code_execution,
                 regeneration_feedback=feedback,
             )
 
@@ -172,6 +170,7 @@ class DialogueGenerationPipeline:
                 progress=progress,
                 conversation=conversation,
                 candidate=candidate,
+                latest_code_execution=latest_code_execution,
             )
 
             if hard_check.accepted:
@@ -221,9 +220,15 @@ class DialogueGenerationPipeline:
             )
 
         if candidate.learner_state == LearnerState.END and (
-            latest_code_execution is None or not latest_code_execution.passed
+            progress.active_step_id != final_step_id
+            or not candidate.step_completed
+            or latest_code_execution is None
+            or not latest_code_execution.passed
         ):
-            return "END is not allowed before the student's code passes the tests."
+            return (
+                "END is allowed only when the final plan step is completed and "
+                "the student's submitted code passes the tests."
+            )
 
         return ""
 

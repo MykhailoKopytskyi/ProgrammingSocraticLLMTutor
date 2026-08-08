@@ -16,6 +16,7 @@ from app.execution.code_runner import (
     DockerCodeRunner,
 )
 from app.preprocessing.pipeline import (
+    PreprocessingError,
     PreprocessingPipeline,
 )
 from dotenv import load_dotenv
@@ -59,9 +60,15 @@ class MultiDebugPreprocessingApp:
                 continue
 
             print(f"[{index}/{len(raw_cases)}] {raw_case.case_id}")
-            case = self._pipeline.process(
-                raw_case
-            )  # I.e. generate tests and check that the correct code passes them and buggy one fails
+
+            try:
+                case = self._pipeline.process(
+                    raw_case
+                )  # I.e. generate tests and check that the correct code passes them and buggy one fails
+            except PreprocessingError as error:
+                print(f"FAILED: {error}")
+                continue
+
             self._store.append(case)
             print("accepted")
 

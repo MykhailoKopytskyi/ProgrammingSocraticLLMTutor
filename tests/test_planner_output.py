@@ -4,15 +4,16 @@ from app.agents.offline.offline_plan_verifier_agent import (
     OfflinePlanVerifierAgent,
     PlanVerification,
 )
-from app.agents.offline.offline_planner_agent import OfflinePlannerAgent
+from app.agents.offline.offline_planner_agent import (
+    OfflinePlannerAgent,
+    OfflinePlannerOutput,
+)
 from app.common.models import (
     BenchmarkCase,
     BugAnnotation,
     PedagogicalPlan,
-    PlannerOutput,
     PlanStep,
 )
-from app.execution.code_runner import TestRunResult
 from app.training.plan_pipeline import PlanningPipeline
 
 
@@ -40,12 +41,9 @@ def make_case() -> BenchmarkCase:
     )
 
 
-def make_output() -> PlannerOutput:
-    return PlannerOutput(
+def make_offline_output() -> OfflinePlannerOutput:
+    return OfflinePlannerOutput(
         diagnosis_summary="The program treats range's exclusive stop as inclusive.",
-        corrected_code=(
-            "def numbers(start, stop):\n    return list(range(start, stop + 1))\n"
-        ),
         plan=PedagogicalPlan(
             plan_summary="Trace the boundary, explain it, then repair it.",
             steps=[
@@ -70,9 +68,10 @@ def make_output() -> PlannerOutput:
 
 class FakePlannerResponses:
     def parse(self, *, model, instructions, input, text_format):
-        assert text_format is PlannerOutput
+        assert text_format is OfflinePlannerOutput
         assert "TRAINING-ONLY ORACLE CONTEXT" in input
-        return SimpleNamespace(output_parsed=make_output(), output_text="")
+        assert "stop + 1" in input
+        return SimpleNamespace(output_parsed=make_offline_output(), output_text="")
 
 
 class FakePlannerClient:
@@ -83,7 +82,8 @@ class FakePlannerClient:
 class FakeVerifierResponses:
     def parse(self, *, model, instructions, input, text_format):
         assert text_format is PlanVerification
-        assert "CANDIDATE PLANNER OUTPUT" in input
+        assert "CANDIDATE OFFLINE PLANNER OUTPUT" in input
+        assert '"corrected_code"' not in input.split("CANDIDATE OFFLINE PLANNER OUTPUT:", 1)[1]
         return SimpleNamespace(
             output_parsed=PlanVerification(
                 accepted=True,
@@ -102,17 +102,8 @@ class FakeVerifierClient:
         self.responses = FakeVerifierResponses()
 
 
-class FakeRunner:
-    def run(self, *, code, tests):
-        return TestRunResult(
-            passed="stop + 1" in code,
-            exit_code=0 if "stop + 1" in code else 1,
-            stdout="1 passed" if "stop + 1" in code else "1 failed",
-            stderr="",
-        )
-
-
-def test_pipeline_returns_verified_planner_output():
+def test_pipeline_uses_trusted_code_in_final_planner_output():
+    case = make_case()
     pipeline = PlanningPipeline(
         planner=OfflinePlannerAgent(
             llm=FakePlannerClient(),
@@ -122,11 +113,10 @@ def test_pipeline_returns_verified_planner_output():
             llm=FakeVerifierClient(),
             model="fake-verifier",
         ),
-        code_runner=FakeRunner(),
     )
 
-    result = pipeline.generate(make_case())
+    result = pipeline.generate(case)
 
-    assert "stop + 1" in result.output.corrected_code
+    assert result.output.corrected_code == case.correct_code
     assert result.output.plan.steps[0].step_id == "step_1"
     assert result.verification.accepted

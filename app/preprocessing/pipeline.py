@@ -24,7 +24,7 @@ class PreprocessingPipeline:
         *,
         test_generator: OfflineTestGeneratorAgent,
         code_runner: CodeRunner,
-        max_attempts: int,
+        max_attempts: int = 3,
     ):
         if max_attempts < 1:
             raise ValueError("max_attempts must be at least 1")
@@ -44,6 +44,25 @@ class PreprocessingPipeline:
                 case=case,
                 regeneration_feedback=feedback,
             )
+
+            expected_bug_ids = {bug.bug_id for bug in case.bugs}
+            covered_bug_ids = {
+                bug_id
+                for test in generated_tests.tests
+                for bug_id in test.related_bug_ids
+            }
+            missing_bug_ids = expected_bug_ids - covered_bug_ids
+            unsupported_bug_ids = covered_bug_ids - expected_bug_ids
+
+            if missing_bug_ids or unsupported_bug_ids:
+                feedback = (
+                    "The generated test metadata does not cover the supplied "
+                    "oracle bugs correctly. "
+                    f"Missing bug IDs: {sorted(missing_bug_ids)}. "
+                    f"Unsupported bug IDs: {sorted(unsupported_bug_ids)}."
+                )
+                continue
+
             tests = generated_tests.to_pytest_file()
 
             correct_execution = self._code_runner.run(

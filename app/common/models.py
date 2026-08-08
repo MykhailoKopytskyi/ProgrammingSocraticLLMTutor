@@ -113,12 +113,7 @@ class PedagogicalPlan(StrictModel):
 
 
 class PlannerOutput(StrictModel):
-    """
-    Complete output of the solve-and-plan task.
-
-    corrected_code is a candidate until execution and oracle verification
-    both accept it.
-    """
+    """Canonical solve-and-plan output used as the training target and later runtime contract."""
 
     diagnosis_summary: str
     corrected_code: str

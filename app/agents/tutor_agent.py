@@ -12,6 +12,7 @@ from ..common.models import (
     PlanProgress,
     StrictModel,
 )
+from ..execution.code_runner import TestRunResult
 from .agent import Agent
 from .student_agent import LearnerState
 
@@ -63,6 +64,7 @@ class TutorAgent(Agent):
         *,
         conversation: Conversation,
         progress: PlanProgress,
+        latest_code_execution: TestRunResult | None = None,
         regeneration_feedback: str = "",
     ) -> TutorTurn:
         last_message = conversation.last_message
@@ -75,6 +77,15 @@ class TutorAgent(Agent):
                 "TutorAgent conversation must end with the latest student message"
             )
 
+        execution_evidence = (
+            "No student-submitted code has been executed yet."
+            if latest_code_execution is None
+            else (
+                f"passed={latest_code_execution.passed}\n"
+                f"{latest_code_execution.output}"
+            )
+        )
+
         prompt = (
             "Generate the tutor's next conversational turn in response to "
             "the final student message in the conversation history.\n\n"
@@ -84,6 +95,9 @@ class TutorAgent(Agent):
             "<plan_progress>\n"
             f"{progress.model_dump_json(indent=2)}\n"
             "</plan_progress>\n\n"
+            "<latest_student_code_execution>\n"
+            f"{execution_evidence}\n"
+            "</latest_student_code_execution>\n\n"
             "<conversation_history>\n"
             f"{conversation.to_text()}\n"
             "</conversation_history>"

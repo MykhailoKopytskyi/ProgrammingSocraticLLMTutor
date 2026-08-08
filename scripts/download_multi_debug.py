@@ -36,6 +36,7 @@ class MultiDebugDownloadApp:
 
         self._download()
         self._extract()
+        self._validate()
 
         self.ARCHIVE_PATH.unlink(missing_ok=True)
 
@@ -62,6 +63,17 @@ class MultiDebugDownloadApp:
             "r",
         ) as archive:
             archive.extractall(self.OUTPUT_DIRECTORY)
+
+    def _validate(self) -> None:
+        print("Validating MULTI_DEBUG...")
+
+        cases = MultiDebugLoader(self.OUTPUT_DIRECTORY).load()
+
+        if len(cases) != self.EXPECTED_CASE_COUNT:
+            raise RuntimeError(
+                "Unexpected MULTI_DEBUG case count: "
+                f"expected {self.EXPECTED_CASE_COUNT}, found {len(cases)}."
+            )
 
     def _dataset_is_ready(self) -> bool:
         if not self.OUTPUT_DIRECTORY.exists():

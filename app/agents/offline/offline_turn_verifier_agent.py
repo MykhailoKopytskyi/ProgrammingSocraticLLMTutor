@@ -7,6 +7,7 @@ from pydantic import Field
 from ...common.config import OFFLINE_TURN_VERIFIER_INSTRUCTIONS
 from ...common.conversation import Conversation
 from ...common.models import BenchmarkCase, PedagogicalPlan, PlanProgress, StrictModel
+from ...execution.code_runner import TestRunResult
 from ..agent import Agent
 from ..tutor_agent import TutorTurn
 
@@ -32,6 +33,7 @@ class OfflineTurnVerifierAgent(Agent):
         progress: PlanProgress,
         conversation: Conversation,
         candidate: TutorTurn,
+        latest_code_execution: TestRunResult | None = None,
     ) -> TutorHardCheck:
         last_message = conversation.last_message
 
@@ -44,6 +46,15 @@ class OfflineTurnVerifierAgent(Agent):
                 "candidate responds"
             )
 
+        execution_evidence = (
+            "No student-submitted code has been executed yet."
+            if latest_code_execution is None
+            else (
+                f"passed={latest_code_execution.passed}\n"
+                f"{latest_code_execution.output}"
+            )
+        )
+
         prompt = (
             "Evaluate the proposed Tutor turn before it is added to the "
             "conversation.\n\n"
@@ -55,6 +66,8 @@ class OfflineTurnVerifierAgent(Agent):
             f"{plan.model_dump_json(indent=2)}\n\n"
             "CURRENT PLAN PROGRESS:\n"
             f"{progress.model_dump_json(indent=2)}\n\n"
+            "LATEST STUDENT CODE EXECUTION:\n"
+            f"{execution_evidence}\n\n"
             "ACCEPTED CONVERSATION HISTORY:\n"
             f"{conversation.to_text()}\n\n"
             "CANDIDATE TUTOR TURN:\n"

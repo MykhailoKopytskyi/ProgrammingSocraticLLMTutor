@@ -3,12 +3,13 @@ from __future__ import annotations
 from typing import Any
 
 from ...common.config import OFFLINE_PLAN_VERIFIER_INSTRUCTIONS
-from ...common.models import BenchmarkCase, PlannerOutput, StrictModel
+from ...common.models import BenchmarkCase, StrictModel
 from ..agent import Agent
+from .offline_planner_agent import OfflinePlannerOutput
 
 
 class OfflinePlanVerifierAgent(Agent):
-    """Checks a candidate plan against training only ground truth."""
+    """Checks an offline candidate diagnosis and plan against training-only ground truth."""
 
     def __init__(
         self,
@@ -25,16 +26,15 @@ class OfflinePlanVerifierAgent(Agent):
     def verify(
         self,
         case: BenchmarkCase,
-        planner_output: PlannerOutput,
+        planner_output: OfflinePlannerOutput,
     ) -> PlanVerification:
         prompt = (
-            "Verify the candidate diagnosis, corrected code, and pedagogical "
-            "plan.\n\n"
+            "Verify the candidate diagnosis and pedagogical plan.\n\n"
             "RUNTIME-VISIBLE CONTEXT:\n"
             f"{case.visible_context()}\n\n"
             "TRAINING-ONLY ORACLE CONTEXT:\n"
             f"{case.oracle_context()}\n\n"
-            "CANDIDATE PLANNER OUTPUT:\n"
+            "CANDIDATE OFFLINE PLANNER OUTPUT:\n"
             f"{planner_output.model_dump_json(indent=2)}"
         )
 

@@ -12,7 +12,7 @@ from ..agent import Agent
 
 class OfflineReferenceRepairAgent(Agent):
     """
-    Generates a candidate minimal repair for a raw MULTI_DEBUG case.
+    Fallback for preprocessing datasets that do not provide trusted corrected code.
     """
 
     def __init__(

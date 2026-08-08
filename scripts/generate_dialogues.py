@@ -37,7 +37,6 @@ class DialogueGenerationApp:
                 llm=self._client,
                 model=os.environ["VERIFIER_LLM_MODEL"],
             ),
-            code_runner=runner,
         )
         self._profile_agent = OfflineStudentProfileAgent(
             llm=self._client,
@@ -54,8 +53,22 @@ class DialogueGenerationApp:
             ),
             code_runner=runner,
         )
-        self._cases = BenchmarkCaseStore(Path("data/processed/multi_debug.jsonl"))
-        self._dialogues = DialogueStore(Path("data/generated/dialogues.jsonl"))
+        self._cases = BenchmarkCaseStore(
+            Path(
+                os.getenv(
+                    "BENCHMARK_DATA_PATH",
+                    "data/processed/multi_debug.jsonl",
+                )
+            )
+        )
+        self._dialogues = DialogueStore(
+            Path(
+                os.getenv(
+                    "DIALOGUE_OUTPUT_PATH",
+                    "data/generated/dialogues.jsonl",
+                )
+            )
+        )
 
     def run(self) -> None:
         cases = self._cases.load()

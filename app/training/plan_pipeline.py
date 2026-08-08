@@ -8,7 +8,6 @@ from ..agents.offline.offline_plan_verifier_agent import (
 )
 from ..agents.offline.offline_planner_agent import OfflinePlannerAgent
 from ..common.models import BenchmarkCase, PlannerOutput
-from ..execution.code_runner import CodeRunner
 
 
 class PlanGenerationError(RuntimeError):
@@ -28,7 +27,6 @@ class PlanningPipeline:
         *,
         planner: OfflinePlannerAgent,
         verifier: OfflinePlanVerifierAgent,
-        code_runner: CodeRunner,
         max_attempts: int = 3,
     ):
         if max_attempts < 1:
@@ -36,7 +34,6 @@ class PlanningPipeline:
 
         self._planner = planner
         self._verifier = verifier
-        self._code_runner = code_runner
         self._max_attempts = max_attempts
 
     def generate(
@@ -47,31 +44,22 @@ class PlanningPipeline:
         last_error = ""
 
         for attempt in range(1, self._max_attempts + 1):
-            planner_output = self._planner.generate_output(
+            offline_output = self._planner.generate_output(
                 case=case,
                 regeneration_feedback=regeneration_feedback,
             )
 
-            execution = self._code_runner.run(
-                code=planner_output.corrected_code,
-                tests=case.tests,
-            )
-
-            if not execution.passed:
-                last_error = execution.output
-                regeneration_feedback = (
-                    "Your candidate corrected code failed the supplied tests. "
-                    "Correct the repair before rebuilding the plan.\n\n"
-                    f"{execution.output}"
-                )
-                continue
-
             verification = self._verifier.verify(
                 case=case,
-                planner_output=planner_output,
+                planner_output=offline_output,
             )
 
             if verification.accepted:
+                planner_output = PlannerOutput(
+                    diagnosis_summary=offline_output.diagnosis_summary,
+                    corrected_code=case.correct_code,
+                    plan=offline_output.plan,
+                )
                 return VerifiedPlan(
                     output=planner_output,
                     verification=verification,

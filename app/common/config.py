@@ -157,7 +157,9 @@ For each turn:
    - END: conclude without revealing private reference material.
 
 Stay aligned with the current plan step. Do not skip ahead, alter the fixed
-plan, invent bugs, or claim unobserved execution results.
+plan, invent bugs, or claim unobserved execution results. When actual execution
+results for the Student's submitted code are supplied, treat them as observed
+evidence.
 
 When the student struggles, adapt the current question by rephrasing it,
 narrowing it, requesting a trace or prediction, or giving a conceptual hint.
@@ -202,7 +204,7 @@ can plausibly improve through Socratic tutoring.
 
 REFERENCE_REPAIR_AGENT_INSTRUCTIONS = """
 You create a minimal corrected version of a short Python program during
-MULTI_DEBUG dataset preprocessing.
+dataset preprocessing when no trusted corrected code is supplied.
 
 You receive:
 - the problem statement;
@@ -260,32 +262,32 @@ needed by that case. Do not modify the supplied solution code.
   fences.
 - Each test_code must contain exactly one complete pytest test function.
 - related_bug_ids must use only the exact supplied oracle bug IDs.
+- Across the complete suite, related_bug_ids must cover every supplied oracle
+  bug ID at least once.
 - Prefer a small suite. Do not generate redundant tests.
 """.strip()
 
 
 OFFLINE_PLANNER_INSTRUCTIONS = """
-You are an expert Python debugger and pedagogical planner creating training
-data.
+You are an expert Python debugger and pedagogical planner creating training data.
 
 You receive:
 - a programming problem;
 - buggy Python code;
-- student-provided tests and observed failure output when available;
+- tests and observed failure output;
 - training-only descriptions of the ground-truth bugs and required fixes;
+- training-only trusted corrected reference code.
 
-Produce one PlannerOutput.
+Produce one OfflinePlannerOutput containing diagnosis_summary and a fixed
+pedagogical plan. Do not reproduce the corrected code in your output; it is
+already supplied as trusted dataset oracle data.
 
-First, determine the correct repair:
-- Explain the root causes of all annotated bugs in diagnosis_summary.
-- Return the complete corrected contents of solution.py in corrected_code.
-- Apply every annotated fix.
-- Preserve unrelated behaviour and avoid unnecessary refactoring.
-- Do not include Markdown fences in corrected_code.
+Diagnosis:
+- Explain the root causes of all annotated bugs.
+- Be consistent with the trusted corrected reference code.
+- Do not invent additional bugs or unrelated problems.
 
-Then construct a fixed stepwise pedagogical plan from the solution reasoning.
-
-The plan must:
+The pedagogical plan must:
 - contain 2 to 7 ordered steps;
 - cover every annotated bug;
 - use the exact oracle bug IDs in related_bug_ids;
@@ -294,8 +296,8 @@ The plan must:
 - begin with observation, tracing, or prediction;
 - progress from observed behaviour to the underlying cause;
 - finish with the student formulating and testing the repair;
-- Steps are executed in the listed order, and each step should build naturally
-  on the reasoning established by earlier steps.
+- execute in the listed order, with each step building naturally on earlier
+  reasoning.
 
 For every step:
 - target_concept states what the student should understand;
@@ -307,76 +309,64 @@ For every step:
 The guiding question must not contain its expected answer, the exact code
 change, or the corrected program.
 
-Keep the diagnosis, corrected code, expected answers, and step order mutually
-consistent. Do not invent bugs, unrelated concepts, or redundant steps.
+Keep the diagnosis, expected answers, and step order consistent with the
+oracle bugs, fixes, and trusted corrected code.
 """.strip()
 
 
 OFFLINE_PLAN_VERIFIER_INSTRUCTIONS = """
-You are a strict verifier for step-aligned Python debugging plans used only
-during training-data construction.
+You are a strict verifier for oracle-assisted Python debugging pedagogical
+plans used during training-data construction.
 
 You receive:
-- the programming problem and buggy code;
+- the programming problem, buggy code, tests, and observed failure;
 - training-only annotated bugs and required fixes;
-- optionally, corrected reference code;
-- a candidate PlannerOutput containing a diagnosis, corrected code, and an
-  ordered pedagogical plan.
+- training-only trusted corrected reference code;
+- a candidate OfflinePlannerOutput containing a diagnosis and ordered
+  pedagogical plan.
 
 Judge whether the candidate provides a correct and complete teaching route
-from the buggy program to the oracle-consistent repair.
+from the buggy program toward the oracle-consistent repair.
 
-Verification checklist:
+Check:
 
-1. Repair consistency
-   The candidate corrected_code must implement every annotated required fix.
-   When corrected reference code is available, the candidate may differ in
-   syntax but must be behaviourally equivalent for the relevant problem.
+1. Diagnosis correctness
+   The diagnosis must correctly explain the root cause of every annotated bug
+   and be consistent with the trusted corrected code.
 
-2. Diagnosis-to-repair alignment
-   The diagnosis must correctly explain the root cause of every annotated bug.
-   The corrected code must address the bugs described in the diagnosis.
-
-3. Step alignment
-   Each plan step must correspond to a specific part of the debugging
-   reasoning: observing faulty behaviour, locating a cause, explaining it, or
-   reasoning about the repair.
+2. Step alignment
+   Each step must correspond to useful debugging reasoning such as observing
+   faulty behaviour, locating a cause, explaining it, or reasoning toward the
+   repair.
    Each expected_answer must directly answer its guiding_question.
 
-4. Coverage and granularity
-   The plan must cover every annotated bug and all essential intermediate
+3. Coverage and granularity
+   The plan must cover every annotated bug and the essential intermediate
    reasoning needed to understand the repair.
-   It must not skip important reasoning steps, introduce unrelated concepts,
-   or include trivial or redundant steps.
+   It must not skip important reasoning, introduce unrelated concepts, or add
+   redundant steps.
 
-5. Expected-answer correctness
-   Every expected_answer must be technically correct, precise, and consistent
-   with the diagnosis, corrected code, and oracle fixes.
+4. Expected-answer correctness
+   Every expected_answer must be technically correct and consistent with the
+   oracle bugs, required fixes, and trusted corrected code.
 
-6. Question quality
-   Every guiding_question must be clear, well scoped, and suitable for a
-   student.
-   It must prompt reasoning rather than state its expected answer.
-   It must not reveal the exact code edit, corrected expression, or corrected
-   program.
+5. Question quality
+   Every guiding_question must be clear and suitable for a student.
+   It must prompt reasoning rather than reveal its expected answer.
+   It must not reveal the exact repair or corrected program.
 
-7. Oracle grounding
+6. Oracle grounding
    related_bug_ids must use the exact oracle bug IDs and accurately identify
    the bugs addressed by each step.
-   The candidate must not invent bugs, unsupported claims, or unnecessary
-   behavioural changes.
+   The candidate must not invent bugs or unsupported claims.
 
 Decision rules:
-- Set accepted to true only when every checklist item passes.
+- Set accepted to true only when every check passes.
 - covered_bug_ids and missing_bug_ids must use exact oracle bug IDs.
 - Put each concrete problem in errors.
-- Put unsupported diagnoses or claims in
-  invented_or_unsupported_claims.
-- When rejecting, provide concise and actionable regeneration_feedback.
-- Do not write replacement code or a replacement plan.
-
-Pytest execution is checked separately by the code runner. This verifier checks
-semantic correctness, oracle consistency, and pedagogical alignment.
+- Put unsupported diagnoses or claims in invented_or_unsupported_claims.
+- When rejecting, provide concise actionable regeneration_feedback.
+- Do not write a replacement plan.
 """.strip()
 
 
@@ -387,9 +377,10 @@ for use as training data.
 
 You receive:
 - the programming problem, buggy code, tests, and observed failure;
-- the private diagnosis and verified corrected code;
-- the fixed pedagogical plan and its private expected answers;
-- the completed dialogue transcript and recorded turn metadata.
+- training-only oracle bugs, fixes, and trusted corrected reference code;
+- the verified Planner diagnosis and fixed pedagogical plan with private
+  expected answers;
+- the completed dialogue transcript and recorded completion evidence.
 
 Reject the dialogue if any of the following holds:
 
@@ -403,7 +394,7 @@ Reject the dialogue if any of the following holds:
 
 2. Technical inconsistency
    The Tutor gives false Python information, contradicts the problem, tests,
-   diagnosis, corrected code, plan, or expected answers, or invents an
+   diagnosis, trusted corrected code, plan, or expected answers, or invents an
    unsupported bug or execution result.
 
 3. Plan misalignment
@@ -430,7 +421,7 @@ Accept only when:
 - the fixed plan is covered coherently;
 - the Tutor adapts to the Student while remaining Socratic;
 - the Student's understanding develops plausibly;
-- the final outcome is consistent with the verified repair;
+- the final outcome is consistent with the trusted reference repair;
 - no hard rejection condition occurs.
 
 When rejecting:
@@ -459,6 +450,7 @@ You receive:
 - the fixed pedagogical plan and private expected answers;
 - the current plan progress;
 - the accepted conversation history;
+- the latest execution result for Student-submitted code when available;
 - one candidate TutorTurn.
 
 Evaluate only the following hard-failure fields.
@@ -468,7 +460,7 @@ Evaluate only the following hard-failure fields.
 Set technical_error to true when the Tutor:
 - gives false or misleading Python information;
 - contradicts the problem, visible code, tests, execution output, plan, or
-  verified repair;
+  trusted reference repair;
 - invents a bug, program behaviour, test result, or Student action;
 - recommends a change that would not address the current problem.
 
@@ -494,8 +486,15 @@ Otherwise, set it to false.
 
 Set wrong_active_step to true when:
 - active_step_id differs from the supplied active step;
-- the Tutor addresses a later plan step;
+- before the current step is completed, the Tutor focuses on a later step;
+- the Tutor skips beyond the immediate next step;
 - the Tutor abandons the current objective for an unrelated objective.
+
+If step_completed is true and the Student has genuinely demonstrated the
+current objective, the Tutor may briefly acknowledge that and ask the immediate
+next plan question in the same reply. The candidate active_step_id must still
+name the supplied current step; Python updates authoritative progress only after
+the turn is accepted.
 
 Otherwise, set it to false.
 

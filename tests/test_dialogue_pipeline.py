@@ -38,6 +38,7 @@ class FakeStudentAgent:
 
 class FakeTutorAgent:
     def __init__(self):
+        self.execution_results = []
         self._turns = [
             TutorTurn(
                 analysis_and_decision="Student identified the observed boundary.",
@@ -57,12 +58,24 @@ class FakeTutorAgent:
             ),
         ]
 
-    def generate_turn(self, *, conversation, progress, regeneration_feedback=""):
+    def generate_turn(
+        self,
+        *,
+        conversation,
+        progress,
+        latest_code_execution=None,
+        regeneration_feedback="",
+    ):
+        self.execution_results.append(latest_code_execution)
         return self._turns.pop(0)
 
 
 class FakeTurnVerifier:
+    def __init__(self):
+        self.execution_results = []
+
     def verify(self, **kwargs):
+        self.execution_results.append(kwargs.get("latest_code_execution"))
         return TutorHardCheck(
             technical_error=False,
             learner_state_mismatch=False,
@@ -153,8 +166,10 @@ def test_dialogue_pipeline_generates_verified_complete_dialogue():
         attempts=1,
     )
 
+    tutor = FakeTutorAgent()
+    turn_verifier = FakeTurnVerifier()
     pipeline = DialogueGenerationPipeline(
-        turn_verifier=FakeTurnVerifier(),
+        turn_verifier=turn_verifier,
         dialogue_verifier=FakeDialogueVerifier(),
         code_runner=FakeRunner(),
     )
@@ -163,9 +178,15 @@ def test_dialogue_pipeline_generates_verified_complete_dialogue():
         verified_plan=verified_plan,
         profile=StudentProfile(misconceptions=["range includes stop"]),
         student_agent=FakeStudentAgent(),
-        tutor_agent=FakeTutorAgent(),
+        tutor_agent=tutor,
     )
 
+    assert tutor.execution_results[0] is None
+    assert tutor.execution_results[1] is not None
+    assert tutor.execution_results[1].passed
+    assert turn_verifier.execution_results[0] is None
+    assert turn_verifier.execution_results[1] is not None
+    assert turn_verifier.execution_results[1].passed
     assert dialogue.dialogue_verification.accepted
     assert len(dialogue.turns) == 4
     assert dialogue.turns[2].code_execution is not None

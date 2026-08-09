@@ -15,7 +15,7 @@ from app.datasets.store import (
 from app.execution.code_runner import (
     DockerCodeRunner,
 )
-from app.preprocessing.pipeline import (
+from app.preprocessing.preprocessing_pipeline import (
     PreprocessingError,
     PreprocessingPipeline,
 )

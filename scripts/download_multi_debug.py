@@ -8,11 +8,7 @@ from app.datasets.multi_debug_loader import MultiDebugLoader
 
 
 class MultiDebugDownloadApp:
-    DATASET_URL = (
-        "https://drive.google.com/file/d/"
-        "1ZFc7XfPoOShD3KZef3Z1DVHJU1fj_1LN/"
-        "view?usp=sharing"
-    )
+    DATASET_URL = "https://drive.google.com/file/d/1ZFc7XfPoOShD3KZef3Z1DVHJU1fj_1LN/view?usp=sharing"
 
     ARCHIVE_PATH = Path("data/raw/tree_instruct_multi_debug_dataset.zip")
 

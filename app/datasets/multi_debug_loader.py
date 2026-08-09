@@ -13,6 +13,8 @@ class MultiDebugLoader(DatasetLoader):
     MULTI_DEBUG-specific parsing is completely encapsulated here.
     """
 
+    _root: str | Path
+    _reference_directory: Path
     _VARIANTS = (
         ("1bug-MULTI_BUG", 1),
         ("2bug-MULTI-BUG", 2),

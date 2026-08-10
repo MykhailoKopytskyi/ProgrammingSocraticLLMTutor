@@ -19,6 +19,8 @@ from app.preprocessing.preprocessing_pipeline import (
     PreprocessingError,
     PreprocessingPipeline,
 )
+
+from app.common.config import CONFIG
 from dotenv import load_dotenv
 from openai import OpenAI
 
@@ -44,7 +46,7 @@ class MultiDebugPreprocessingApp:
         self._pipeline = PreprocessingPipeline(
             test_generator=(test_generator),
             code_runner=(DockerCodeRunner()),
-            max_attempts=3,
+            max_attempts=CONFIG["OFFLINE_TEST_GENERATOR_MAX_ATTEMPTS"],
         )
 
     def run(self) -> None:

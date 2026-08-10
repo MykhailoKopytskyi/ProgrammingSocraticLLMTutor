@@ -2,6 +2,11 @@ from __future__ import annotations
 
 from .models import BenchmarkCase, BugAnnotation
 
+CONFIG={
+    "OFFLINE_TEST_GENERATOR_MAX_ATTEMPTS": 5,
+}
+
+
 SAMPLE_CASES: list[BenchmarkCase] = [
     BenchmarkCase(
         case_id="range-stop-exclusive",

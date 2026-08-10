@@ -19,14 +19,10 @@ class BenchmarkCase(StrictModel):
     buggy_code: str
     tests: str
     observed_failure: str
-
     bugs: list[BugAnnotation] = Field(min_length=1, max_length=3)
-
     correct_code: str
-
     source: str = "manual"
 
-    # Validate the required fields of this object to make sure they are not empty
     @model_validator(mode="after")
     def validate_non_empty_fields(self) -> BenchmarkCase:
         required_text = {
@@ -38,53 +34,37 @@ class BenchmarkCase(StrictModel):
             "correct_code": self.correct_code,
         }
         missing = []
-
         for name, value in required_text.items():
             if not value.strip():
                 missing.append(name)
 
-        if len(missing) > 0:
+        if missing:
             raise ValueError(f"Empty required fields: {', '.join(missing)}")
         return self
 
     def visible_context(self) -> str:
-        """
-        Information available to the Planner and Tutor.
-        Excludes annotated bugs, fixes and corrected code
-        """
-
+        """Return the case information that is visible at runtime."""
         return (
-            f"Problem statement:\n"
-            f"{self.problem_statement.strip()}\n\n"
-            f"Buggy code:\n"
-            f"```python\n"
-            f"{self.buggy_code.rstrip()}\n"
-            f"```\n\n"
-            f"Tests:\n"
-            f"```pytest\n"
-            f"{self.tests.rstrip()}\n"
-            f"```\n\n"
+            f"Problem statement:\n{self.problem_statement.strip()}\n\n"
+            f"Buggy code:\n```python\n{self.buggy_code.rstrip()}\n```\n\n"
+            f"Tests:\n```pytest\n{self.tests.rstrip()}\n```\n\n"
             f"Observed test output:\n"
             f"{self.observed_failure.strip() or '[not executed]'}\n\n"
         )
 
     def oracle_context(self) -> str:
-        "Training only information available to verification agents"
+        """Return training-only bug and reference-solution information."""
+        bug_lines = []
+        for bug in self.bugs:
+            bug_lines.append(
+                f"- {bug.bug_id}: {bug.description}\n  Required fix: {bug.fix}"
+            )
 
-        bug_text = "\n".join(
-            (f"- {bug.bug_id}: {bug.description}\n  Required fix: {bug.fix}")
-            for bug in self.bugs
-        )
-
+        bug_text = "\n".join(bug_lines)
         correct = self.correct_code.strip() or "[not supplied]"
-
         return (
-            f"Ground-truth bugs and fixes:\n"
-            f"{bug_text}\n\n"
-            f"Corrected code:\n"
-            f"```python\n"
-            f"{correct}\n"
-            f"```"
+            f"Ground-truth bugs and fixes:\n{bug_text}\n\n"
+            f"Corrected code:\n```python\n{correct}\n```"
         )
 
 
@@ -93,27 +73,26 @@ class PlanStep(StrictModel):
     target_concept: str
     guiding_question: str
     expected_answer: str
-
     related_bug_ids: list[str]
 
 
 class PedagogicalPlan(StrictModel):
     plan_summary: str
-
     steps: list[PlanStep] = Field(min_length=2, max_length=7)
 
     @model_validator(mode="after")
     def validate_unique_step_ids(self) -> PedagogicalPlan:
-        step_ids = [step.step_id for step in self.steps]
+        step_ids = []
+        for step in self.steps:
+            step_ids.append(step.step_id)
 
         if len(step_ids) != len(set(step_ids)):
             raise ValueError("Plan step IDs must be unique")
-
         return self
 
 
 class PlannerOutput(StrictModel):
-    """Canonical solve-and-plan output used as the training target and later runtime contract."""
+    """Planner target used during training and later at runtime."""
 
     diagnosis_summary: str
     corrected_code: str
@@ -123,10 +102,8 @@ class PlannerOutput(StrictModel):
     def validate_content(self) -> PlannerOutput:
         if not self.diagnosis_summary.strip():
             raise ValueError("diagnosis_summary must not be empty")
-
         if not self.corrected_code.strip():
             raise ValueError("corrected_code must not be empty")
-
         return self
 
 
@@ -144,7 +121,6 @@ class TutorTurnQualityEvaluation(StrictModel):
     notes: str = ""
 
 
-# If the dataset misses tests then we can automatically generate them
 class GeneratedTest(StrictModel):
     test_id: str
     test_code: str
@@ -158,16 +134,13 @@ class GeneratedTests(StrictModel):
 
     def to_pytest_file(self) -> str:
         sections = []
-
         if self.imports_and_fixtures.strip():
             sections.append(self.imports_and_fixtures.strip())
-
-        sections.extend(test.test_code.strip() for test in self.tests)
-
+        for test in self.tests:
+            sections.append(test.test_code.strip())
         return "\n\n".join(sections).rstrip() + "\n"
 
 
-# If the dataset misses corrected code + its explanation, then we can automatically generate them
 class AppliedFix(StrictModel):
     bug_id: str
     explanation: str
@@ -182,9 +155,9 @@ class ReferenceRepair(StrictModel):
         if not self.corrected_code.strip():
             raise ValueError("corrected_code must not be empty")
 
-        bug_ids = [applied_fix.bug_id for applied_fix in self.applied_fixes]
-
+        bug_ids = []
+        for applied_fix in self.applied_fixes:
+            bug_ids.append(applied_fix.bug_id)
         if len(bug_ids) != len(set(bug_ids)):
             raise ValueError("applied_fixes must use unique bug IDs")
-
         return self

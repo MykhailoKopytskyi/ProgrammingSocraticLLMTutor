@@ -3,6 +3,7 @@ from __future__ import annotations
 from enum import Enum
 from typing import Any
 
+from ..common.code_runner import TestRunResult
 from ..common.config import TUTOR_AGENT_INSTRUCTIONS
 from ..common.conversation import Conversation
 from ..common.message import Message
@@ -12,7 +13,6 @@ from ..common.models import (
     PlanProgress,
     StrictModel,
 )
-from ..execution.code_runner import TestRunResult
 from .agent import Agent
 from .student_agent import LearnerState
 
@@ -81,8 +81,7 @@ class TutorAgent(Agent):
             "No student-submitted code has been executed yet."
             if latest_code_execution is None
             else (
-                f"passed={latest_code_execution.passed}\n"
-                f"{latest_code_execution.output}"
+                f"passed={latest_code_execution.passed}\n{latest_code_execution.output}"
             )
         )
 

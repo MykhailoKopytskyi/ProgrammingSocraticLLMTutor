@@ -4,8 +4,15 @@ from ..agents.offline.offline_dialogue_verifier_agent import DialogueVerificatio
 from ..agents.offline.offline_turn_verifier_agent import TutorHardCheck
 from ..agents.student_agent import StudentProfile, StudentTurn
 from ..agents.tutor_agent import TutorTurn
+from ..common.code_runner import TestRunResult
 from ..common.models import PlannerOutput, StrictModel
-from ..execution.code_runner import TestRunResult
+
+
+class PreparedDialogueCase(StrictModel):
+    case_id: str
+    source: str
+    student_profile: StudentProfile
+    planner_output: PlannerOutput
 
 
 class CodeExecutionRecord(StrictModel):
@@ -13,14 +20,8 @@ class CodeExecutionRecord(StrictModel):
     output: str
 
     @classmethod
-    def from_result(
-        cls,
-        result: TestRunResult,
-    ) -> CodeExecutionRecord:
-        return cls(
-            passed=result.passed,
-            output=result.output,
-        )
+    def from_result(cls, result: TestRunResult) -> CodeExecutionRecord:
+        return cls(passed=result.passed, output=result.output)
 
 
 class StudentTurnRecord(StrictModel):

@@ -19,10 +19,8 @@ class Agent(ABC):
     def _get_structured_output(
         self, prompt: str, output_type: type[StructuredOutputT]
     ) -> StructuredOutputT:
-        """Request a structured reponse and validate against a model"""
+        """Request structured output and validate it against a model."""
 
-        print(self.instructions)
-        print(prompt)
         response = self.llm.responses.parse(
             model=self.model,
             instructions=self.instructions,
@@ -30,7 +28,6 @@ class Agent(ABC):
             text_format=output_type,
         )
         parsed = getattr(response, "output_parsed", None)
-        print(parsed)
         if parsed is None:
             raw_output = getattr(response, "output_text", "")
             raise AgentResponseError(

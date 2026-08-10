@@ -21,14 +21,11 @@ class TestRunResult:
 
     @property
     def output(self) -> str:
-        return "\n".join(
-            part
-            for part in (
-                self.stdout.strip(),
-                self.stderr.strip(),
-            )
-            if part
-        )
+        parts = []
+        for part in (self.stdout.strip(), self.stderr.strip()):
+            if part:
+                parts.append(part)
+        return "\n".join(parts)
 
 
 class CodeRunner(Protocol):

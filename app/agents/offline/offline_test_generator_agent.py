@@ -4,7 +4,7 @@ from typing import Any
 
 from ...common.config import OFFLINE_TEST_GENERATOR_INSTRUCTIONS
 from ...common.models import GeneratedTests
-from ...datasets.base import RawBenchmarkCase
+from ...preprocessing.raw_benchmark_case import RawBenchmarkCase
 from ..agent import Agent
 
 
@@ -29,10 +29,12 @@ class OfflineTestGeneratorAgent(Agent):
         case: RawBenchmarkCase,
         regeneration_feedback: str = "",
     ) -> GeneratedTests:
-        oracle_bugs = "\n\n".join(
-            f"{bug.bug_id}\nDescription: {bug.description}\nRequired fix: {bug.fix}"
-            for bug in case.bugs
-        )
+        bug_lines = []
+        for bug in case.bugs:
+            bug_lines.append(
+                f"{bug.bug_id}\nDescription: {bug.description}\nRequired fix: {bug.fix}"
+            )
+        oracle_bugs = "\n\n".join(bug_lines)
 
         prompt = (
             "Generate a compact pytest suite for this case.\n\n"

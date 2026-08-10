@@ -9,16 +9,15 @@ from ..agents.offline.offline_turn_verifier_agent import (
 )
 from ..agents.student_agent import LearnerState, StudentAgent, StudentProfile
 from ..agents.tutor_agent import TutorAgent, TutorTurn
+from ..common.code_runner import CodeRunner, TestRunResult
 from ..common.conversation import Conversation
-from ..common.models import BenchmarkCase, PedagogicalPlan, PlanProgress
-from ..execution.code_runner import CodeRunner, TestRunResult
-from .dialogue_models import (
+from ..common.models import BenchmarkCase, PedagogicalPlan, PlannerOutput, PlanProgress
+from .models import (
     CodeExecutionRecord,
     GeneratedDialogue,
     StudentTurnRecord,
     TutorTurnRecord,
 )
-from .plan_pipeline import VerifiedPlan
 
 
 class DialogueGenerationError(RuntimeError):
@@ -51,12 +50,12 @@ class DialogueGenerationPipeline:
         self,
         *,
         case: BenchmarkCase,
-        verified_plan: VerifiedPlan,
+        planner_output: PlannerOutput,
         profile: StudentProfile,
         student_agent: StudentAgent,
         tutor_agent: TutorAgent,
     ) -> GeneratedDialogue:
-        plan = verified_plan.output.plan
+        plan = planner_output.plan
         progress = PlanProgress(
             completed_step_ids=[],
             active_step_id=plan.steps[0].step_id,
@@ -121,7 +120,7 @@ class DialogueGenerationPipeline:
             ):
                 return self._finalize(
                     case=case,
-                    verified_plan=verified_plan,
+                    planner_output=planner_output,
                     profile=profile,
                     conversation=conversation,
                     records=records,
@@ -243,11 +242,14 @@ class DialogueGenerationPipeline:
             return progress
 
         completed = [*progress.completed_step_ids, progress.active_step_id]
-        current_index = next(
-            index
-            for index, step in enumerate(plan.steps)
-            if step.step_id == progress.active_step_id
-        )
+        current_index = None
+        for index, step in enumerate(plan.steps):
+            if step.step_id == progress.active_step_id:
+                current_index = index
+                break
+
+        if current_index is None:
+            raise ValueError(f"Unknown active step: {progress.active_step_id}")
 
         if current_index == len(plan.steps) - 1:
             return PlanProgress(
@@ -284,7 +286,7 @@ class DialogueGenerationPipeline:
         self,
         *,
         case: BenchmarkCase,
-        verified_plan: VerifiedPlan,
+        planner_output: PlannerOutput,
         profile: StudentProfile,
         conversation: Conversation,
         records: list[StudentTurnRecord | TutorTurnRecord],
@@ -301,7 +303,7 @@ class DialogueGenerationPipeline:
 
         verification = self._dialogue_verifier.verify(
             case=case,
-            planner_output=verified_plan.output,
+            planner_output=planner_output,
             dialogue_transcript=conversation.to_text(),
             completion_evidence=completion_evidence,
         )
@@ -316,7 +318,7 @@ class DialogueGenerationPipeline:
             case_id=case.case_id,
             source=case.source,
             student_profile=profile,
-            planner_output=verified_plan.output,
+            planner_output=planner_output,
             turns=records,
             dialogue_verification=verification,
         )

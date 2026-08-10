@@ -6,7 +6,7 @@ from ...common.config import (
     REFERENCE_REPAIR_AGENT_INSTRUCTIONS,
 )
 from ...common.models import ReferenceRepair
-from ...datasets.base import RawBenchmarkCase
+from ...preprocessing.raw_benchmark_case import RawBenchmarkCase
 from ..agent import Agent
 
 
@@ -32,10 +32,12 @@ class OfflineReferenceRepairAgent(Agent):
         case: RawBenchmarkCase,
         regeneration_feedback: str = "",
     ) -> ReferenceRepair:
-        oracle_bugs = "\n".join(
-            (f"{bug.bug_id}\nDescription: {bug.description}\nRequired fix: {bug.fix}")
-            for bug in case.bugs
-        )
+        bug_lines = []
+        for bug in case.bugs:
+            bug_lines.append(
+                f"{bug.bug_id}\nDescription: {bug.description}\nRequired fix: {bug.fix}"
+            )
+        oracle_bugs = "\n".join(bug_lines)
 
         prompt = (
             "Create the minimal corrected program.\n\n"

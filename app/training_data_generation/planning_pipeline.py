@@ -36,10 +36,7 @@ class PlanningPipeline:
         self._verifier = verifier
         self._max_attempts = max_attempts
 
-    def generate(
-        self,
-        case: BenchmarkCase,
-    ) -> VerifiedPlan:
+    def generate(self, case: BenchmarkCase) -> VerifiedPlan:
         regeneration_feedback = ""
         last_error = ""
 
@@ -48,20 +45,18 @@ class PlanningPipeline:
                 case=case,
                 regeneration_feedback=regeneration_feedback,
             )
-
             verification = self._verifier.verify(
                 case=case,
                 planner_output=offline_output,
             )
 
             if verification.accepted:
-                planner_output = PlannerOutput(
-                    diagnosis_summary=offline_output.diagnosis_summary,
-                    corrected_code=case.correct_code,
-                    plan=offline_output.plan,
-                )
                 return VerifiedPlan(
-                    output=planner_output,
+                    output=PlannerOutput(
+                        diagnosis_summary=offline_output.diagnosis_summary,
+                        corrected_code=case.correct_code,
+                        plan=offline_output.plan,
+                    ),
                     verification=verification,
                     attempts=attempt,
                 )

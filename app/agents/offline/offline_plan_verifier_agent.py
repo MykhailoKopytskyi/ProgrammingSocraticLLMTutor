@@ -29,7 +29,7 @@ class OfflinePlanVerifierAgent(Agent):
         planner_output: OfflinePlannerOutput,
     ) -> PlanVerification:
         prompt = (
-            "Verify the candidate diagnosis and pedagogical plan.\n\n"
+            "Verify the candidate pedagogical plan.\n\n"
             "RUNTIME-VISIBLE CONTEXT:\n"
             f"{case.visible_context()}\n\n"
             "TRAINING-ONLY ORACLE CONTEXT:\n"

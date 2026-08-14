@@ -17,3 +17,4 @@ class RawBenchmarkCase:
     correct_code: str
     bugs: tuple[BugAnnotation, ...]
     source: str
+    tests: str = ""

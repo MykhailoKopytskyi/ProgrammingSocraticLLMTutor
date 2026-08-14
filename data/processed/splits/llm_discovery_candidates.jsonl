@@ -1,0 +1,185 @@
+{"stage": "initial_discovery", "pass": 1, "left_id": "QUIXBUGS:mergesort", "right_id": "QUIXBUGS:quicksort"}
+{"stage": "initial_discovery", "pass": 1, "left_id": "QUIXBUGS:kheapsort", "right_id": "QUIXBUGS:quicksort"}
+{"stage": "initial_discovery", "pass": 1, "left_id": "QUIXBUGS:bucketsort", "right_id": "QUIXBUGS:quicksort"}
+{"stage": "initial_discovery", "pass": 1, "left_id": "QUIXBUGS:kheapsort", "right_id": "QUIXBUGS:mergesort"}
+{"stage": "initial_discovery", "pass": 1, "left_id": "QUIXBUGS:bucketsort", "right_id": "QUIXBUGS:mergesort"}
+{"stage": "initial_discovery", "pass": 1, "left_id": "MULTI_DEBUG:max subarray", "right_id": "QUIXBUGS:max subarray sum"}
+{"stage": "initial_discovery", "pass": 1, "left_id": "QUIXBUGS:lcs length", "right_id": "QUIXBUGS:longest common subsequence"}
+{"stage": "initial_discovery", "pass": 1, "left_id": "MULTI_DEBUG:valid parentheses", "right_id": "QUIXBUGS:is valid parentheses"}
+{"stage": "initial_discovery", "pass": 1, "left_id": "MULTI_DEBUG:next permutation", "right_id": "QUIXBUGS:next permutation"}
+{"stage": "initial_discovery", "pass": 1, "left_id": "MULTI_DEBUG:subsets", "right_id": "QUIXBUGS:powerset"}
+{"stage": "initial_discovery", "pass": 1, "left_id": "QUIXBUGS:find first in sorted", "right_id": "QUIXBUGS:find in sorted"}
+{"stage": "initial_discovery", "pass": 1, "left_id": "MULTI_DEBUG:search insert position", "right_id": "QUIXBUGS:find in sorted"}
+{"stage": "initial_discovery", "pass": 1, "left_id": "MULTI_DEBUG:search in rotated sorted array", "right_id": "QUIXBUGS:find in sorted"}
+{"stage": "initial_discovery", "pass": 1, "left_id": "MULTI_DEBUG:find first and last position of element in sorted array", "right_id": "QUIXBUGS:find first in sorted"}
+{"stage": "initial_discovery", "pass": 1, "left_id": "PYMETA:cluster_038", "right_id": "QUIXBUGS:reverse linked list"}
+{"stage": "initial_discovery", "pass": 1, "left_id": "INTRO_PROG:290880fc8e", "right_id": "MULTI_DEBUG:reverse string"}
+{"stage": "initial_discovery", "pass": 1, "left_id": "INTRO_PROG:290880fc8e", "right_id": "PYMETA:cluster_038"}
+{"stage": "initial_discovery", "pass": 1, "left_id": "INTRO_PROG:f6d4149fcd", "right_id": "PYMETA:cluster_052"}
+{"stage": "initial_discovery", "pass": 1, "left_id": "INTRO_PROG:0ceee779dc", "right_id": "INTRO_PROG:f6d4149fcd"}
+{"stage": "initial_discovery", "pass": 1, "left_id": "INTRO_PROG:b71b83efc5", "right_id": "PYMETA:cluster_040"}
+{"stage": "initial_discovery", "pass": 1, "left_id": "PYMETA:cluster_031", "right_id": "PYMETA:cluster_055"}
+{"stage": "initial_discovery", "pass": 1, "left_id": "PYMETA:cluster_001", "right_id": "PYMETA:cluster_031"}
+{"stage": "initial_discovery", "pass": 1, "left_id": "PYMETA:cluster_001", "right_id": "PYMETA:cluster_055"}
+{"stage": "initial_discovery", "pass": 1, "left_id": "PYMETA:cluster_058", "right_id": "PYMETA:cluster_059"}
+{"stage": "initial_discovery", "pass": 1, "left_id": "PYMETA:cluster_019", "right_id": "PYMETA:cluster_026"}
+{"stage": "initial_discovery", "pass": 1, "left_id": "PYMETA:cluster_025", "right_id": "PYMETA:cluster_037"}
+{"stage": "initial_discovery", "pass": 1, "left_id": "MULTI_DEBUG:longest palindromic string", "right_id": "PYMETA:cluster_025"}
+{"stage": "initial_discovery", "pass": 1, "left_id": "MULTI_DEBUG:palindrome number", "right_id": "PYMETA:cluster_037"}
+{"stage": "initial_discovery", "pass": 1, "left_id": "MULTI_DEBUG:add binary", "right_id": "MULTI_DEBUG:add two numbers"}
+{"stage": "initial_discovery", "pass": 1, "left_id": "MULTI_DEBUG:jump game", "right_id": "MULTI_DEBUG:jump game ii"}
+{"stage": "initial_discovery", "pass": 1, "left_id": "QUIXBUGS:shortest path length", "right_id": "QUIXBUGS:shortest paths"}
+{"stage": "initial_discovery", "pass": 1, "left_id": "QUIXBUGS:shortest path length", "right_id": "QUIXBUGS:shortest path lengths"}
+{"stage": "initial_discovery", "pass": 1, "left_id": "QUIXBUGS:shortest path lengths", "right_id": "QUIXBUGS:shortest paths"}
+{"stage": "initial_discovery", "pass": 1, "left_id": "QUIXBUGS:breadth first search", "right_id": "QUIXBUGS:depth first search"}
+{"stage": "initial_discovery", "pass": 1, "left_id": "MULTI_DEBUG:3sum", "right_id": "MULTI_DEBUG:two sum"}
+{"stage": "initial_discovery", "pass": 1, "left_id": "MULTI_DEBUG:merge intervals", "right_id": "MULTI_DEBUG:merge k sorted lists"}
+{"stage": "initial_discovery", "pass": 1, "left_id": "QUIXBUGS:get factors", "right_id": "QUIXBUGS:sieve"}
+{"stage": "initial_discovery", "pass": 1, "left_id": "QUIXBUGS:knapsack", "right_id": "QUIXBUGS:possible change"}
+{"stage": "initial_discovery", "pass": 1, "left_id": "PYMETA:cluster_015", "right_id": "QUIXBUGS:pascal"}
+{"stage": "initial_discovery", "pass": 1, "left_id": "MULTI_DEBUG:longest common prefix", "right_id": "QUIXBUGS:lcs length"}
+{"stage": "initial_discovery", "pass": 1, "left_id": "MULTI_DEBUG:longest palindromic string", "right_id": "MULTI_DEBUG:longest string without repeating characters"}
+{"stage": "initial_discovery", "pass": 1, "left_id": "MULTI_DEBUG:remove duplicates from sorted array", "right_id": "PYMETA:cluster_023"}
+{"stage": "initial_discovery", "pass": 1, "left_id": "MULTI_DEBUG:reverse string", "right_id": "PYMETA:cluster_029"}
+{"stage": "initial_discovery", "pass": 1, "left_id": "PYMETA:cluster_010", "right_id": "PYMETA:cluster_020"}
+{"stage": "initial_discovery", "pass": 1, "left_id": "PYMETA:cluster_011", "right_id": "PYMETA:cluster_028"}
+{"stage": "initial_discovery", "pass": 1, "left_id": "MULTI_DEBUG:rotate image", "right_id": "MULTI_DEBUG:spiral matrix"}
+{"stage": "initial_discovery", "pass": 1, "left_id": "MULTI_DEBUG:rotate image", "right_id": "MULTI_DEBUG:set matrix zeroes"}
+{"stage": "initial_discovery", "pass": 1, "left_id": "MULTI_DEBUG:valid parentheses", "right_id": "QUIXBUGS:rpn eval"}
+{"stage": "initial_discovery", "pass": 1, "left_id": "QUIXBUGS:rpn eval", "right_id": "QUIXBUGS:shunting yard"}
+{"stage": "initial_discovery", "pass": 1, "left_id": "MULTI_DEBUG:best time to buy and sell stock", "right_id": "MULTI_DEBUG:best time to buy and sell stock with cooldown"}
+{"stage": "initial_discovery", "pass": 1, "left_id": "PYMETA:cluster_039", "right_id": "PYMETA:cluster_040"}
+{"stage": "initial_discovery", "pass": 1, "left_id": "PYMETA:cluster_006", "right_id": "PYMETA:cluster_008"}
+{"stage": "initial_discovery", "pass": 1, "left_id": "PYMETA:cluster_030", "right_id": "PYMETA:cluster_055"}
+{"stage": "initial_discovery", "pass": 1, "left_id": "MULTI_DEBUG:palindrome number", "right_id": "PYMETA:cluster_037"}
+{"stage": "initial_discovery", "pass": 2, "left_id": "MULTI_DEBUG:subsets", "right_id": "QUIXBUGS:powerset"}
+{"stage": "initial_discovery", "pass": 2, "left_id": "MULTI_DEBUG:next permutation", "right_id": "QUIXBUGS:next permutation"}
+{"stage": "initial_discovery", "pass": 2, "left_id": "MULTI_DEBUG:max subarray", "right_id": "QUIXBUGS:max subarray sum"}
+{"stage": "initial_discovery", "pass": 2, "left_id": "MULTI_DEBUG:valid parentheses", "right_id": "QUIXBUGS:is valid parentheses"}
+{"stage": "initial_discovery", "pass": 2, "left_id": "MULTI_DEBUG:reverse string", "right_id": "PYMETA:cluster_038"}
+{"stage": "initial_discovery", "pass": 2, "left_id": "INTRO_PROG:290880fc8e", "right_id": "MULTI_DEBUG:reverse string"}
+{"stage": "initial_discovery", "pass": 2, "left_id": "MULTI_DEBUG:longest common prefix", "right_id": "PYMETA:cluster_038"}
+{"stage": "initial_discovery", "pass": 2, "left_id": "INTRO_PROG:342bcbf8dc", "right_id": "INTRO_PROG:e23ea1e6ca"}
+{"stage": "initial_discovery", "pass": 2, "left_id": "INTRO_PROG:342bcbf8dc", "right_id": "PYMETA:cluster_040"}
+{"stage": "initial_discovery", "pass": 2, "left_id": "INTRO_PROG:e23ea1e6ca", "right_id": "PYMETA:cluster_040"}
+{"stage": "initial_discovery", "pass": 2, "left_id": "INTRO_PROG:0ceee779dc", "right_id": "INTRO_PROG:f6d4149fcd"}
+{"stage": "initial_discovery", "pass": 2, "left_id": "QUIXBUGS:mergesort", "right_id": "QUIXBUGS:quicksort"}
+{"stage": "initial_discovery", "pass": 2, "left_id": "QUIXBUGS:bucketsort", "right_id": "QUIXBUGS:quicksort"}
+{"stage": "initial_discovery", "pass": 2, "left_id": "QUIXBUGS:find first in sorted", "right_id": "QUIXBUGS:find in sorted"}
+{"stage": "initial_discovery", "pass": 2, "left_id": "QUIXBUGS:shortest path length", "right_id": "QUIXBUGS:shortest paths"}
+{"stage": "initial_discovery", "pass": 2, "left_id": "QUIXBUGS:shortest path lengths", "right_id": "QUIXBUGS:shortest paths"}
+{"stage": "initial_discovery", "pass": 2, "left_id": "QUIXBUGS:breadth first search", "right_id": "QUIXBUGS:depth first search"}
+{"stage": "initial_discovery", "pass": 2, "left_id": "MULTI_DEBUG:two sum", "right_id": "QUIXBUGS:kth"}
+{"stage": "initial_discovery", "pass": 2, "left_id": "QUIXBUGS:gcd", "right_id": "QUIXBUGS:get factors"}
+{"stage": "initial_discovery", "pass": 2, "left_id": "PYMETA:cluster_019", "right_id": "PYMETA:cluster_026"}
+{"stage": "initial_discovery", "pass": 2, "left_id": "PYMETA:cluster_058", "right_id": "PYMETA:cluster_059"}
+{"stage": "initial_discovery", "pass": 2, "left_id": "PYMETA:cluster_031", "right_id": "PYMETA:cluster_055"}
+{"stage": "initial_discovery", "pass": 2, "left_id": "PYMETA:cluster_001", "right_id": "PYMETA:cluster_031"}
+{"stage": "initial_discovery", "pass": 2, "left_id": "PYMETA:cluster_030", "right_id": "PYMETA:cluster_050"}
+{"stage": "initial_discovery", "pass": 2, "left_id": "INTRO_PROG:b71b83efc5", "right_id": "PYMETA:cluster_040"}
+{"stage": "initial_discovery", "pass": 2, "left_id": "MULTI_DEBUG:palindrome number", "right_id": "PYMETA:cluster_037"}
+{"stage": "initial_discovery", "pass": 2, "left_id": "MULTI_DEBUG:longest palindromic string", "right_id": "QUIXBUGS:next palindrome"}
+{"stage": "initial_discovery", "pass": 2, "left_id": "MULTI_DEBUG:remove nth node from end of list", "right_id": "QUIXBUGS:reverse linked list"}
+{"stage": "initial_discovery", "pass": 2, "left_id": "MULTI_DEBUG:best time to buy and sell stock", "right_id": "MULTI_DEBUG:best time to buy and sell stock with cooldown"}
+{"stage": "initial_discovery", "pass": 2, "left_id": "MULTI_DEBUG:arithmetic slices", "right_id": "PYMETA:cluster_015"}
+{"stage": "initial_discovery", "pass": 2, "left_id": "MULTI_DEBUG:container with most water", "right_id": "MULTI_DEBUG:trapping rain water"}
+{"stage": "initial_discovery", "pass": 2, "left_id": "MULTI_DEBUG:longest string without repeating characters", "right_id": "QUIXBUGS:lcs length"}
+{"stage": "initial_discovery", "pass": 2, "left_id": "MULTI_DEBUG:merge intervals", "right_id": "QUIXBUGS:wrap"}
+{"stage": "initial_discovery", "pass": 2, "left_id": "MULTI_DEBUG:rotate image", "right_id": "MULTI_DEBUG:spiral matrix"}
+{"stage": "initial_discovery", "pass": 2, "left_id": "MULTI_DEBUG:sort colors", "right_id": "QUIXBUGS:quicksort"}
+{"stage": "initial_discovery", "pass": 2, "left_id": "MULTI_DEBUG:search in rotated sorted array", "right_id": "QUIXBUGS:find in sorted"}
+{"stage": "initial_discovery", "pass": 2, "left_id": "MULTI_DEBUG:find first and last position of element in sorted array", "right_id": "QUIXBUGS:find first in sorted"}
+{"stage": "initial_discovery", "pass": 2, "left_id": "MULTI_DEBUG:search insert position", "right_id": "QUIXBUGS:find first in sorted"}
+{"stage": "initial_discovery", "pass": 2, "left_id": "MULTI_DEBUG:word break", "right_id": "QUIXBUGS:longest common subsequence"}
+{"stage": "initial_discovery", "pass": 2, "left_id": "MULTI_DEBUG:decode ways", "right_id": "QUIXBUGS:pascal"}
+{"stage": "initial_discovery", "pass": 2, "left_id": "MULTI_DEBUG:add binary", "right_id": "MULTI_DEBUG:plus one"}
+{"stage": "initial_discovery", "pass": 2, "left_id": "MULTI_DEBUG:roman to integer", "right_id": "QUIXBUGS:to base"}
+{"stage": "initial_discovery", "pass": 2, "left_id": "MULTI_DEBUG:add binary", "right_id": "MULTI_DEBUG:add two numbers"}
+{"stage": "initial_discovery", "pass": 2, "left_id": "MULTI_DEBUG:intersection of two arrays ii", "right_id": "MULTI_DEBUG:remove duplicates from sorted array"}
+{"stage": "initial_discovery", "pass": 2, "left_id": "MULTI_DEBUG:merge k sorted lists", "right_id": "QUIXBUGS:mergesort"}
+{"stage": "initial_discovery", "pass": 2, "left_id": "MULTI_DEBUG:set matrix zeroes", "right_id": "PYMETA:cluster_020"}
+{"stage": "initial_discovery", "pass": 2, "left_id": "MULTI_DEBUG:unique paths", "right_id": "QUIXBUGS:pascal"}
+{"stage": "initial_discovery", "pass": 2, "left_id": "MULTI_DEBUG:fizz buzz", "right_id": "PYMETA:cluster_008"}
+{"stage": "initial_discovery", "pass": 2, "left_id": "MULTI_DEBUG:count and say", "right_id": "MULTI_DEBUG:fizz buzz"}
+{"stage": "initial_discovery", "pass": 2, "left_id": "MULTI_DEBUG:longest common prefix", "right_id": "QUIXBUGS:lcs length"}
+{"stage": "initial_discovery", "pass": 2, "left_id": "QUIXBUGS:knapsack", "right_id": "QUIXBUGS:possible change"}
+{"stage": "initial_discovery", "pass": 2, "left_id": "QUIXBUGS:lis", "right_id": "QUIXBUGS:longest common subsequence"}
+{"stage": "initial_discovery", "pass": 2, "left_id": "QUIXBUGS:rpn eval", "right_id": "QUIXBUGS:shunting yard"}
+{"stage": "initial_discovery", "pass": 2, "left_id": "QUIXBUGS:depth first search", "right_id": "QUIXBUGS:topological ordering"}
+{"stage": "initial_discovery", "pass": 2, "left_id": "QUIXBUGS:min spanning tree", "right_id": "QUIXBUGS:shortest paths"}
+{"stage": "initial_discovery", "pass": 2, "left_id": "QUIXBUGS:bucketsort", "right_id": "QUIXBUGS:kheapsort"}
+{"stage": "initial_discovery", "pass": 2, "left_id": "QUIXBUGS:flatten", "right_id": "QUIXBUGS:subsequences"}
+{"stage": "initial_discovery", "pass": 2, "left_id": "QUIXBUGS:gcd", "right_id": "QUIXBUGS:sqrt"}
+{"stage": "initial_discovery", "pass": 2, "left_id": "INTRO_PROG:f6d4149fcd", "right_id": "PYMETA:cluster_009"}
+{"stage": "initial_discovery", "pass": 2, "left_id": "INTRO_PROG:0ceee779dc", "right_id": "PYMETA:cluster_009"}
+{"stage": "initial_discovery", "pass": 2, "left_id": "INTRO_PROG:f6d4149fcd", "right_id": "PYMETA:cluster_052"}
+{"stage": "initial_discovery", "pass": 2, "left_id": "INTRO_PROG:0ceee779dc", "right_id": "PYMETA:cluster_052"}
+{"stage": "initial_discovery", "pass": 2, "left_id": "MULTI_DEBUG:intersection of two arrays ii", "right_id": "PYMETA:cluster_023"}
+{"stage": "initial_discovery", "pass": 2, "left_id": "MULTI_DEBUG:subsets", "right_id": "PYMETA:cluster_010"}
+{"stage": "initial_discovery", "pass": 2, "left_id": "PYMETA:cluster_009", "right_id": "PYMETA:cluster_028"}
+{"stage": "initial_discovery", "pass": 2, "left_id": "PYMETA:cluster_011", "right_id": "PYMETA:cluster_028"}
+{"stage": "initial_discovery", "pass": 2, "left_id": "PYMETA:cluster_014", "right_id": "PYMETA:cluster_023"}
+{"stage": "initial_discovery", "pass": 2, "left_id": "PYMETA:cluster_032", "right_id": "PYMETA:cluster_045"}
+{"stage": "initial_discovery", "pass": 2, "left_id": "PYMETA:cluster_045", "right_id": "PYMETA:cluster_056"}
+{"stage": "initial_discovery", "pass": 2, "left_id": "PYMETA:cluster_033", "right_id": "PYMETA:cluster_034"}
+{"stage": "initial_discovery", "pass": 2, "left_id": "PYMETA:cluster_039", "right_id": "PYMETA:cluster_040"}
+{"stage": "initial_discovery", "pass": 2, "left_id": "PYMETA:cluster_003", "right_id": "PYMETA:cluster_036"}
+{"stage": "initial_discovery", "pass": 2, "left_id": "PYMETA:cluster_012", "right_id": "PYMETA:cluster_013"}
+{"stage": "initial_discovery", "pass": 2, "left_id": "PYMETA:cluster_027", "right_id": "PYMETA:cluster_043"}
+{"stage": "initial_discovery", "pass": 2, "left_id": "PYMETA:cluster_006", "right_id": "PYMETA:cluster_008"}
+{"stage": "initial_discovery", "pass": 2, "left_id": "PYMETA:cluster_047", "right_id": "PYMETA:cluster_048"}
+{"stage": "initial_discovery", "pass": 2, "left_id": "MULTI_DEBUG:jump game", "right_id": "MULTI_DEBUG:jump game ii"}
+{"stage": "initial_discovery", "pass": 2, "left_id": "MULTI_DEBUG:longest palindromic string", "right_id": "MULTI_DEBUG:palindrome number"}
+{"stage": "initial_discovery", "pass": 2, "left_id": "MULTI_DEBUG:implement strstr", "right_id": "PYMETA:cluster_040"}
+{"stage": "initial_discovery", "pass": 2, "left_id": "MULTI_DEBUG:median of two sorted arrays", "right_id": "QUIXBUGS:find in sorted"}
+{"stage": "initial_discovery", "pass": 2, "left_id": "MULTI_DEBUG:first missing positive", "right_id": "QUIXBUGS:kth"}
+{"stage": "initial_discovery", "pass": 2, "left_id": "MULTI_DEBUG:3sum", "right_id": "MULTI_DEBUG:4sum ii"}
+{"stage": "initial_discovery", "pass": 2, "left_id": "MULTI_DEBUG:container with most water", "right_id": "MULTI_DEBUG:largest rectangle in histogram"}
+{"stage": "initial_discovery", "pass": 2, "left_id": "MULTI_DEBUG:largest rectangle in histogram", "right_id": "MULTI_DEBUG:trapping rain water"}
+{"stage": "initial_discovery", "pass": 3, "left_id": "MULTI_DEBUG:next permutation", "right_id": "QUIXBUGS:next permutation"}
+{"stage": "initial_discovery", "pass": 3, "left_id": "MULTI_DEBUG:subsets", "right_id": "QUIXBUGS:powerset"}
+{"stage": "initial_discovery", "pass": 3, "left_id": "MULTI_DEBUG:max subarray", "right_id": "QUIXBUGS:max subarray sum"}
+{"stage": "initial_discovery", "pass": 3, "left_id": "MULTI_DEBUG:valid parentheses", "right_id": "QUIXBUGS:is valid parentheses"}
+{"stage": "initial_discovery", "pass": 3, "left_id": "MULTI_DEBUG:reverse string", "right_id": "PYMETA:cluster_038"}
+{"stage": "initial_discovery", "pass": 3, "left_id": "INTRO_PROG:290880fc8e", "right_id": "MULTI_DEBUG:reverse string"}
+{"stage": "initial_discovery", "pass": 3, "left_id": "MULTI_DEBUG:subsets", "right_id": "QUIXBUGS:powerset"}
+{"stage": "initial_discovery", "pass": 3, "left_id": "MULTI_DEBUG:implement strstr", "right_id": "MULTI_DEBUG:longest common prefix"}
+{"stage": "initial_discovery", "pass": 3, "left_id": "MULTI_DEBUG:jump game", "right_id": "MULTI_DEBUG:jump game ii"}
+{"stage": "initial_discovery", "pass": 3, "left_id": "MULTI_DEBUG:best time to buy and sell stock", "right_id": "MULTI_DEBUG:best time to buy and sell stock with cooldown"}
+{"stage": "initial_discovery", "pass": 3, "left_id": "MULTI_DEBUG:count and say", "right_id": "MULTI_DEBUG:decode ways"}
+{"stage": "initial_discovery", "pass": 3, "left_id": "MULTI_DEBUG:find first and last position of element in sorted array", "right_id": "QUIXBUGS:find first in sorted"}
+{"stage": "initial_discovery", "pass": 3, "left_id": "MULTI_DEBUG:find first and last position of element in sorted array", "right_id": "QUIXBUGS:find in sorted"}
+{"stage": "initial_discovery", "pass": 3, "left_id": "MULTI_DEBUG:search insert position", "right_id": "QUIXBUGS:find first in sorted"}
+{"stage": "initial_discovery", "pass": 3, "left_id": "MULTI_DEBUG:search insert position", "right_id": "QUIXBUGS:find in sorted"}
+{"stage": "initial_discovery", "pass": 3, "left_id": "MULTI_DEBUG:rotate image", "right_id": "MULTI_DEBUG:spiral matrix"}
+{"stage": "initial_discovery", "pass": 3, "left_id": "MULTI_DEBUG:longest palindromic string", "right_id": "MULTI_DEBUG:palindrome number"}
+{"stage": "initial_discovery", "pass": 3, "left_id": "MULTI_DEBUG:longest palindromic string", "right_id": "PYMETA:cluster_037"}
+{"stage": "initial_discovery", "pass": 3, "left_id": "MULTI_DEBUG:palindrome number", "right_id": "PYMETA:cluster_037"}
+{"stage": "initial_discovery", "pass": 3, "left_id": "MULTI_DEBUG:island perimeter", "right_id": "MULTI_DEBUG:valid parentheses"}
+{"stage": "initial_discovery", "pass": 3, "left_id": "QUIXBUGS:mergesort", "right_id": "QUIXBUGS:quicksort"}
+{"stage": "initial_discovery", "pass": 3, "left_id": "QUIXBUGS:shortest path length", "right_id": "QUIXBUGS:shortest paths"}
+{"stage": "initial_discovery", "pass": 3, "left_id": "QUIXBUGS:shortest path lengths", "right_id": "QUIXBUGS:shortest paths"}
+{"stage": "initial_discovery", "pass": 3, "left_id": "QUIXBUGS:breadth first search", "right_id": "QUIXBUGS:depth first search"}
+{"stage": "initial_discovery", "pass": 3, "left_id": "QUIXBUGS:lis", "right_id": "QUIXBUGS:subsequences"}
+{"stage": "initial_discovery", "pass": 3, "left_id": "QUIXBUGS:lcs length", "right_id": "QUIXBUGS:longest common subsequence"}
+{"stage": "initial_discovery", "pass": 3, "left_id": "PYMETA:cluster_058", "right_id": "PYMETA:cluster_059"}
+{"stage": "initial_discovery", "pass": 3, "left_id": "PYMETA:cluster_001", "right_id": "PYMETA:cluster_031"}
+{"stage": "initial_discovery", "pass": 3, "left_id": "INTRO_PROG:b71b83efc5", "right_id": "PYMETA:cluster_040"}
+{"stage": "initial_discovery", "pass": 3, "left_id": "INTRO_PROG:b71b83efc5", "right_id": "PYMETA:cluster_039"}
+{"stage": "initial_discovery", "pass": 3, "left_id": "PYMETA:cluster_039", "right_id": "PYMETA:cluster_040"}
+{"stage": "initial_discovery", "pass": 3, "left_id": "INTRO_PROG:290880fc8e", "right_id": "PYMETA:cluster_029"}
+{"stage": "initial_discovery", "pass": 3, "left_id": "PYMETA:cluster_019", "right_id": "PYMETA:cluster_026"}
+{"stage": "initial_discovery", "pass": 3, "left_id": "PYMETA:cluster_022", "right_id": "PYMETA:cluster_051"}
+{"stage": "initial_discovery", "pass": 3, "left_id": "PYMETA:cluster_011", "right_id": "PYMETA:cluster_028"}
+{"stage": "initial_discovery", "pass": 3, "left_id": "INTRO_PROG:0ceee779dc", "right_id": "PYMETA:cluster_009"}
+{"stage": "initial_discovery", "pass": 3, "left_id": "QUIXBUGS:bucketsort", "right_id": "QUIXBUGS:mergesort"}
+{"stage": "initial_discovery", "pass": 3, "left_id": "QUIXBUGS:bucketsort", "right_id": "QUIXBUGS:quicksort"}
+{"stage": "initial_discovery", "pass": 3, "left_id": "QUIXBUGS:kth", "right_id": "QUIXBUGS:quicksort"}
+{"stage": "initial_discovery", "pass": 3, "left_id": "MULTI_DEBUG:palindrome number", "right_id": "QUIXBUGS:next palindrome"}
+{"stage": "initial_discovery", "pass": 3, "left_id": "MULTI_DEBUG:add binary", "right_id": "MULTI_DEBUG:plus one"}
+{"stage": "initial_discovery", "pass": 3, "left_id": "MULTI_DEBUG:add binary", "right_id": "MULTI_DEBUG:add two numbers"}
+{"stage": "initial_discovery", "pass": 3, "left_id": "MULTI_DEBUG:intersection of two arrays ii", "right_id": "PYMETA:cluster_023"}
+{"stage": "initial_discovery", "pass": 3, "left_id": "MULTI_DEBUG:longest palindromic string", "right_id": "MULTI_DEBUG:longest string without repeating characters"}
+{"stage": "initial_discovery", "pass": 3, "left_id": "MULTI_DEBUG:container with most water", "right_id": "MULTI_DEBUG:trapping rain water"}
+{"stage": "initial_discovery", "pass": 3, "left_id": "MULTI_DEBUG:intersection of two arrays ii", "right_id": "MULTI_DEBUG:merge intervals"}
+{"stage": "initial_discovery", "pass": 3, "left_id": "QUIXBUGS:get factors", "right_id": "QUIXBUGS:sieve"}

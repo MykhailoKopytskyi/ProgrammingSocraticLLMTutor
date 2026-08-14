@@ -11,7 +11,7 @@ from ..common.models import BenchmarkCase, PlannerOutput
 
 
 class PlanGenerationError(RuntimeError):
-    """Raised when no acceptable plan is produced within the retry limit."""
+    pass
 
 
 @dataclass(frozen=True)
@@ -21,7 +21,7 @@ class VerifiedPlan:
     attempts: int
 
 
-class PlanningPipeline:
+class PlanGenerator:
     def __init__(
         self,
         *,
@@ -45,18 +45,21 @@ class PlanningPipeline:
                 case=case,
                 regeneration_feedback=regeneration_feedback,
             )
+
             verification = self._verifier.verify(
                 case=case,
                 planner_output=offline_output,
             )
 
             if verification.accepted:
+                output = PlannerOutput(
+                    bugs=case.bugs,
+                    corrected_code=case.correct_code,
+                    plan=offline_output.plan,
+                )
+
                 return VerifiedPlan(
-                    output=PlannerOutput(
-                        diagnosis_summary=offline_output.diagnosis_summary,
-                        corrected_code=case.correct_code,
-                        plan=offline_output.plan,
-                    ),
+                    output=output,
                     verification=verification,
                     attempts=attempt,
                 )
@@ -64,7 +67,7 @@ class PlanningPipeline:
             last_error = "; ".join(verification.errors)
             regeneration_feedback = (
                 verification.regeneration_feedback.strip()
-                or "The planner output failed oracle verification."
+                or "The previous plan failed oracle verification."
             )
 
         raise PlanGenerationError(

@@ -10,7 +10,6 @@ from ..agent import Agent
 class OfflinePlannerOutput(StrictModel):
     """Oracle-assisted output generated only during offline data construction."""
 
-    diagnosis_summary: str
     plan: PedagogicalPlan
 
 
@@ -38,8 +37,10 @@ class OfflinePlannerAgent(Agent):
         regeneration_feedback: str = "",
     ) -> OfflinePlannerOutput:
         prompt = (
-            "Diagnose the bugs and create a pedagogical plan for this Python "
-            "debugging case.\n\n"
+            "Create a pedagogical plan for this Python debugging case. "
+            "The training-only oracle contains the authoritative bug diagnosis, "
+            "required fixes, and corrected code. Use them as grounding; do not "
+            "invent or regenerate alternative bugs or repairs.\n\n"
             "RUNTIME-VISIBLE CONTEXT:\n"
             f"{case.visible_context()}\n\n"
             "TRAINING-ONLY ORACLE CONTEXT:\n"

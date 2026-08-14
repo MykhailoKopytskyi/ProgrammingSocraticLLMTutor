@@ -5,7 +5,7 @@ from typing import Any
 from ...common.config import OFFLINE_STUDENT_PROFILE_INSTRUCTIONS
 from ...common.models import BenchmarkCase
 from ..agent import Agent
-from ..student_agent import StudentProfile
+from .offline_student_agent import StudentProfile
 
 
 class OfflineStudentProfileAgent(Agent):

@@ -7,6 +7,7 @@ from ...common.config import (
     OFFLINE_DIALOGUE_VERIFIER_INSTRUCTIONS,
 )
 from ...common.models import BenchmarkCase, PlannerOutput, StrictModel
+from .offline_student_agent import StudentProfile
 
 
 class OfflineDialogueVerifierAgent(Agent):
@@ -31,6 +32,7 @@ class OfflineDialogueVerifierAgent(Agent):
         *,
         case: BenchmarkCase,
         planner_output: PlannerOutput,
+        student_profile: StudentProfile,
         dialogue_transcript: str,
         completion_evidence: str,
     ) -> DialogueVerification:
@@ -46,6 +48,8 @@ class OfflineDialogueVerifierAgent(Agent):
             f"{case.visible_context()}\n\n"
             "TRAINING-ONLY ORACLE:\n"
             f"{case.oracle_context()}\n\n"
+            "PRIVATE STUDENT PROFILE:\n"
+            f"{student_profile.model_dump_json(indent=2)}\n\n"
             "VERIFIED PLANNER OUTPUT:\n"
             f"{planner_output.model_dump_json(indent=2)}\n\n"
             "COMPLETED DIALOGUE:\n"
@@ -53,7 +57,6 @@ class OfflineDialogueVerifierAgent(Agent):
             "COMPLETION EVIDENCE:\n"
             f"{completion_evidence.strip()}"
         )
-
         return self._get_structured_output(
             prompt=prompt,
             output_type=DialogueVerification,

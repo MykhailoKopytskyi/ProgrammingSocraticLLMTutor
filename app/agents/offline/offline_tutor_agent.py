@@ -3,21 +3,47 @@ from __future__ import annotations
 from enum import Enum
 from typing import Any
 
-from ..common.code_runner import TestRunResult
-from ..common.config import TUTOR_AGENT_INSTRUCTIONS
-from ..common.conversation import Conversation
-from ..common.message import Message
-from ..common.models import (
+from ...common.code_runner import TestRunResult
+from ...common.config import OFFLINE_TUTOR_AGENT_INSTRUCTIONS
+from ...common.conversation import Conversation
+from ...common.message import Message
+from ...common.models import (
     BenchmarkCase,
-    PedagogicalPlan,
+    LearnerState,
+    PlannerOutput,
     PlanProgress,
     StrictModel,
 )
-from .agent import Agent
-from .student_agent import LearnerState
+from ..agent import Agent
 
 
-class TutorAgent(Agent):
+class TutorTurn(StrictModel):
+    analysis_and_decision: str
+    learner_state: LearnerState
+    active_step_id: str
+    step_completed: bool
+    tutor_action: TutorAction
+    reply: str
+
+    def to_message(self) -> Message:
+        return Message(
+            role="tutor",
+            content=self.reply.strip(),
+        )
+
+
+class TutorAction(str, Enum):
+    ASK = "ASK"
+    ADVANCE = "ADVANCE"
+    REASK = "REASK"
+    HINT = "HINT"
+    SIMPLIFY = "SIMPLIFY"
+    ANSWER_AND_STEER = "ANSWER_AND_STEER"
+    REFOCUS = "REFOCUS"
+    SUMMARY = "SUMMARY"
+
+
+class OfflineTutorAgent(Agent):
     """Simulates one tutor for one programming case and one fixed plan."""
 
     def __init__(
@@ -25,12 +51,12 @@ class TutorAgent(Agent):
         llm: Any,
         model: str,
         case: BenchmarkCase,
-        plan: PedagogicalPlan,
-        instructions: str = TUTOR_AGENT_INSTRUCTIONS,
+        planner_output: PlannerOutput,
+        instructions: str = OFFLINE_TUTOR_AGENT_INSTRUCTIONS,
     ):
         personalized_instructions = self._build_instructions(
             base_instructions=instructions,
-            plan=plan,
+            planner_output=planner_output,
         )
 
         super().__init__(
@@ -40,23 +66,25 @@ class TutorAgent(Agent):
         )
 
         self.case = case
-        self.plan = plan
+        self.planner_output = planner_output
 
     @staticmethod
     def _build_instructions(
         *,
         base_instructions: str,
-        plan: PedagogicalPlan,
+        planner_output: PlannerOutput,
     ) -> str:
         return (
             f"{base_instructions}\n\n"
-            "# Private pedagogical plan for this conversation\n\n"
-            "The following plan is authoritative private tutoring guidance. "
-            "Follow it throughout the conversation. Do not mention the plan, "
-            "its expected answers, or bug identifiers to the student.\n\n"
-            "<pedagogical_plan>\n"
-            f"{plan.model_dump_json(indent=2)}\n"
-            "</pedagogical_plan>"
+            "# Private planner output for this conversation\n\n"
+            "The following planner output is authoritative private tutoring "
+            "grounding. It contains the diagnosed bugs, their required fixes, "
+            "a corrected solution, and the pedagogical plan. Use it to keep "
+            "your tutoring technically grounded, but do not disclose this "
+            "private information prematurely.\n\n"
+            "<planner_output>\n"
+            f"{planner_output.model_dump_json(indent=2)}\n"
+            "</planner_output>"
         )
 
     def generate_turn(
@@ -64,6 +92,8 @@ class TutorAgent(Agent):
         *,
         conversation: Conversation,
         progress: PlanProgress,
+        learner_state: LearnerState,
+        previous_learner_states: list[LearnerState],
         latest_code_execution: TestRunResult | None = None,
         regeneration_feedback: str = "",
     ) -> TutorTurn:
@@ -88,6 +118,9 @@ class TutorAgent(Agent):
         prompt = (
             "Generate the tutor's next conversational turn in response to "
             "the final student message in the conversation history.\n\n"
+            "<verified_current_learner_state>\n"
+            f"{learner_state.value}\n"
+            "</verified_current_learner_state>\n\n"
             "<programming_case>\n"
             f"{self.case.visible_context()}\n"
             "</programming_case>\n\n"
@@ -115,29 +148,3 @@ class TutorAgent(Agent):
             prompt=prompt,
             output_type=TutorTurn,
         )
-
-
-class TutorTurn(StrictModel):
-    analysis_and_decision: str
-    learner_state: LearnerState
-    active_step_id: str
-    step_completed: bool
-    tutor_action: TutorAction
-    reply: str
-
-    def to_message(self) -> Message:
-        return Message(
-            role="tutor",
-            content=self.reply.strip(),
-        )
-
-
-class TutorAction(str, Enum):
-    ASK = "ASK"
-    ADVANCE = "ADVANCE"
-    REASK = "REASK"
-    HINT = "HINT"
-    SIMPLIFY = "SIMPLIFY"
-    ANSWER_AND_STEER = "ANSWER_AND_STEER"
-    REFOCUS = "REFOCUS"
-    SUMMARY = "SUMMARY"

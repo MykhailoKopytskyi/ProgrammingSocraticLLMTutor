@@ -9,10 +9,11 @@ from ...common.config import OFFLINE_TURN_VERIFIER_INSTRUCTIONS
 from ...common.conversation import Conversation
 from ...common.models import BenchmarkCase, PedagogicalPlan, PlanProgress, StrictModel
 from ..agent import Agent
-from ..tutor_agent import TutorTurn
+from .offline_student_agent import LearnerState
+from .offline_tutor_agent import TutorTurn
 
 
-class OfflineTurnVerifierAgent(Agent):
+class OfflineTutorTurnVerifierAgent(Agent):
     def __init__(
         self,
         llm: Any,
@@ -33,6 +34,7 @@ class OfflineTurnVerifierAgent(Agent):
         progress: PlanProgress,
         conversation: Conversation,
         candidate: TutorTurn,
+        expected_learner_state: LearnerState,
         latest_code_execution: TestRunResult | None = None,
     ) -> TutorHardCheck:
         last_message = conversation.last_message
@@ -69,6 +71,8 @@ class OfflineTurnVerifierAgent(Agent):
             f"{execution_evidence}\n\n"
             "ACCEPTED CONVERSATION HISTORY:\n"
             f"{conversation.to_text()}\n\n"
+            "VERIFIED STUDENT LEARNER STATE:\n"
+            f"{expected_learner_state.value}\n\n"
             "CANDIDATE TUTOR TURN:\n"
             f"{candidate.model_dump_json(indent=2)}"
         )
@@ -81,7 +85,6 @@ class OfflineTurnVerifierAgent(Agent):
 
 class TutorHardCheck(StrictModel):
     technical_error: bool
-    learner_state_mismatch: bool
     wrong_active_step: bool
     unjustified_step_completion: bool
     latest_student_turn_not_addressed: bool
@@ -97,7 +100,6 @@ class TutorHardCheck(StrictModel):
         return not any(
             (
                 self.technical_error,
-                self.learner_state_mismatch,
                 self.wrong_active_step,
                 self.unjustified_step_completion,
                 self.latest_student_turn_not_addressed,

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from enum import Enum
+
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
@@ -13,13 +15,24 @@ class BugAnnotation(StrictModel):
     fix: str
 
 
+class LearnerState(str, Enum):
+    START = "START"
+    CORRECT = "CORRECT"
+    INCORRECT = "INCORRECT"
+    QUESTION = "QUESTION"
+    COMPREHENSION = "COMPREHENSION"
+    CONFUSION = "CONFUSION"
+    IRRELEVANT = "IRRELEVANT"
+    END = "END"
+
+
 class BenchmarkCase(StrictModel):
     case_id: str
     problem_statement: str
     buggy_code: str
     tests: str
     observed_failure: str
-    bugs: list[BugAnnotation] = Field(min_length=1, max_length=3)
+    bugs: list[BugAnnotation] = Field(min_length=1, max_length=5)
     correct_code: str
     source: str = "manual"
 
@@ -94,14 +107,14 @@ class PedagogicalPlan(StrictModel):
 class PlannerOutput(StrictModel):
     """Planner target used during training and later at runtime."""
 
-    diagnosis_summary: str
+    bugs: list[BugAnnotation] = Field(min_length=1, max_length=5)
     corrected_code: str
     plan: PedagogicalPlan
 
     @model_validator(mode="after")
     def validate_content(self) -> PlannerOutput:
-        if not self.diagnosis_summary.strip():
-            raise ValueError("diagnosis_summary must not be empty")
+        if len(self.bugs) == 0:
+            raise ValueError("the list of bugs must not be empty")
         if not self.corrected_code.strip():
             raise ValueError("corrected_code must not be empty")
         return self

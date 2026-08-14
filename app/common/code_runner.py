@@ -25,7 +25,13 @@ class TestRunResult:
         for part in (self.stdout.strip(), self.stderr.strip()):
             if part:
                 parts.append(part)
-        return "\n".join(parts)
+
+        output = "\n".join(parts)
+
+        if len(output) > 4000:
+            output = "[output truncated]\n" + output[-4000:]
+
+        return output
 
 
 class CodeRunner(Protocol):
@@ -97,9 +103,20 @@ class DockerCodeRunner:
                     command,
                     capture_output=True,
                     text=True,
+                    encoding="utf-8",
+                    errors="replace",
                     timeout=self.timeout_seconds,
                     check=False,
                 )
+                if completed.returncode in (125, 126, 127):
+                    message = completed.stderr.strip()
+                    if not message:
+                        message = completed.stdout.strip()
+
+                    raise RuntimeError(
+                        f"Docker execution failed with exit code "
+                        f"{completed.returncode}: {message}"
+                    )
             except subprocess.TimeoutExpired as error:
                 self._remove_container(container_name)
 
@@ -114,8 +131,8 @@ class DockerCodeRunner:
         return TestRunResult(
             passed=completed.returncode == 0,
             exit_code=completed.returncode,
-            stdout=completed.stdout[-10_000:],
-            stderr=completed.stderr[-10_000:],
+            stdout=(completed.stdout or "")[-10_000:],
+            stderr=(completed.stderr or "")[-10_000:],
         )
 
     def _build_command(
@@ -159,7 +176,8 @@ class DockerCodeRunner:
             "--disable-warnings",
             "-p",
             "no:cacheprovider",
-            "--maxfail=5",
+            "--tb=short",
+            "--maxfail=2",
             "/workspace/test_solution.py",
         ]
 
@@ -176,6 +194,8 @@ class DockerCodeRunner:
             ],
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             timeout=5,
             check=False,
         )

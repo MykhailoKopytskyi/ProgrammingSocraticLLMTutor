@@ -15,11 +15,13 @@ class OfflineTestGeneratorAgent(Agent):
         self,
         llm: Any,
         model: str,
+        reasoning_effort: str | None = None,
         instructions: str = OFFLINE_TEST_GENERATOR_INSTRUCTIONS,
     ):
         super().__init__(
             llm=llm,
             model=model,
+            reasoning_effort=reasoning_effort,
             instructions=instructions,
         )
 
@@ -44,7 +46,7 @@ class OfflineTestGeneratorAgent(Agent):
             f"{case.buggy_code.rstrip()}\n\n"
             "TRAINING-ONLY BUGS AND REQUIRED FIXES:\n"
             f"{oracle_bugs}\n\n"
-            "TRUSTED REFERENCE CORRECT CODE:\n"
+            "TRUSTED STUDENT-ALIGNED CORRECTED CODE:\n"
             f"{case.correct_code.rstrip()}"
         )
 

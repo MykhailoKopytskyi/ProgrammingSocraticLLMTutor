@@ -12,18 +12,20 @@ from ..agent import Agent
 
 class OfflineReferenceRepairAgent(Agent):
     """
-    Fallback for preprocessing datasets that do not provide trusted corrected code.
+    Generates a minimal student-aligned repair during dataset preprocessing.
     """
 
     def __init__(
         self,
         llm: Any,
         model: str,
+        reasoning_effort: str | None = None,
         instructions: str = REFERENCE_REPAIR_AGENT_INSTRUCTIONS,
     ):
         super().__init__(
             llm=llm,
             model=model,
+            reasoning_effort=reasoning_effort,
             instructions=instructions,
         )
 
@@ -31,23 +33,37 @@ class OfflineReferenceRepairAgent(Agent):
         self,
         case: RawBenchmarkCase,
         regeneration_feedback: str = "",
+        independent_reference: bool = False,
     ) -> ReferenceRepair:
-        bug_lines = []
-        for bug in case.bugs:
-            bug_lines.append(
-                f"{bug.bug_id}\nDescription: {bug.description}\nRequired fix: {bug.fix}"
+        if independent_reference:
+            prompt = (
+                "Create a correct version of the student's program using the "
+                "independent reference as a correctness oracle.\n\n"
+                "PROBLEM STATEMENT:\n"
+                f"{case.problem_statement.strip()}\n\n"
+                "ORIGINAL STUDENT CODE:\n"
+                f"{case.buggy_code.rstrip()}\n\n"
+                "TRUSTED INDEPENDENT REFERENCE SOLUTION:\n"
+                f"{case.correct_code.rstrip()}"
             )
-        oracle_bugs = "\n".join(bug_lines)
+        else:
+            bug_lines = []
+            for bug in case.bugs:
+                bug_lines.append(
+                    f"{bug.bug_id}\nDescription: {bug.description}\nRequired fix: {bug.fix}"
+                )
 
-        prompt = (
-            "Create the minimal corrected program.\n\n"
-            "PROBLEM STATEMENT:\n"
-            f"{case.problem_statement.strip()}\n\n"
-            "ORIGINAL BUGGY CODE:\n"
-            f"{case.buggy_code.rstrip()}\n\n"
-            "TRAINING-ONLY BUGS AND REQUIRED FIXES:\n"
-            f"{oracle_bugs}"
-        )
+            oracle_bugs = "\n".join(bug_lines)
+
+            prompt = (
+                "Create the minimal corrected program.\n\n"
+                "PROBLEM STATEMENT:\n"
+                f"{case.problem_statement.strip()}\n\n"
+                "ORIGINAL BUGGY CODE:\n"
+                f"{case.buggy_code.rstrip()}\n\n"
+                "TRAINING-ONLY BUGS AND REQUIRED FIXES:\n"
+                f"{oracle_bugs}"
+            )
 
         if regeneration_feedback.strip():
             prompt += f"\n\nREGENERATION FEEDBACK:\n{regeneration_feedback.strip()}"

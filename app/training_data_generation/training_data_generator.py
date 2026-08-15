@@ -6,7 +6,7 @@ from ..agents.offline.offline_student_profile_agent import OfflineStudentProfile
 from ..common.benchmark_case_store import BenchmarkCaseStore
 from .dialogue_generation import DialogueGenerationError, DialogueGenerator
 from .dialogue_store import DialogueStore
-from .plan_generation import PlanGenerationError, PlanGenerator, VerifiedPlan
+from .plan_generation import PlanGenerationError, PlanGenerator
 
 
 class TrainingDataGenerator:
@@ -34,21 +34,15 @@ class TrainingDataGenerator:
             cases = cases[: self._limit]
 
         existing_dialogues = self._dialogue_store.load()
-        completed = set()
-        contexts = {}
+        completed = set()  # set of completed dialogue vase ids
+        contexts = {}  # dictionary map case_id -> (verified plan, student profile) because those are generated per BenchmarkCase (and for each case we have 3 variants of students)
 
         for dialogue in existing_dialogues:
             completed.add(dialogue.dialogue_id)
 
             if dialogue.case_id not in contexts:
-                verified_plan = VerifiedPlan(
-                    output=dialogue.planner_output,
-                    verification=dialogue.plan_verification,
-                    attempts=dialogue.plan_attempts,
-                )
-
                 contexts[dialogue.case_id] = (
-                    verified_plan,
+                    dialogue.verified_plan,
                     dialogue.student_profile,
                 )
 
@@ -60,7 +54,6 @@ class TrainingDataGenerator:
 
         for index, case in enumerate(cases, start=1):
             missing_variants = []
-
             for variant in variants:
                 dialogue_id = f"{case.case_id}__{variant.value}"
 
@@ -71,7 +64,7 @@ class TrainingDataGenerator:
                 continue
 
             context = contexts.get(case.case_id)
-
+            # If none of dialogues have been generated for this case, then we first need to generate plan and student profile
             if context is None:
                 print(f"[case {index}/{len(cases)}] preparing {case.case_id}")
 

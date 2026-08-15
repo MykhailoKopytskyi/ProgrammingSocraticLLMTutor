@@ -10,6 +10,12 @@ from ...common.models import BenchmarkCase, PlannerOutput, StrictModel
 from .offline_student_agent import StudentProfile
 
 
+class DialogueVerification(StrictModel):
+    accepted: bool
+    main_issue: str
+    errors: list[str]
+
+
 class OfflineDialogueVerifierAgent(Agent):
     """
     Applies the final KEEP/DROP quality check to a completed synthetic dialogue.
@@ -61,10 +67,3 @@ class OfflineDialogueVerifierAgent(Agent):
             prompt=prompt,
             output_type=DialogueVerification,
         )
-
-
-class DialogueVerification(StrictModel):
-    accepted: bool
-    main_issue: str
-    errors: list[str]
-    regeneration_feedback: str

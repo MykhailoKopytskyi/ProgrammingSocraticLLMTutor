@@ -1,24 +1,15 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-
 from ..agents.offline.offline_plan_verifier_agent import (
     OfflinePlanVerifierAgent,
-    PlanVerification,
 )
 from ..agents.offline.offline_planner_agent import OfflinePlannerAgent
 from ..common.models import BenchmarkCase, PlannerOutput
+from .models import VerifiedPlan
 
 
 class PlanGenerationError(RuntimeError):
     pass
-
-
-@dataclass(frozen=True)
-class VerifiedPlan:
-    output: PlannerOutput
-    verification: PlanVerification
-    attempts: int
 
 
 class PlanGenerator:

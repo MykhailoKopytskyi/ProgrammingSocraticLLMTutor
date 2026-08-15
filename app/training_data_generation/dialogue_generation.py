@@ -6,7 +6,6 @@ from ..agents.offline.offline_dialogue_verifier_agent import (
     OfflineDialogueVerifierAgent,
 )
 from ..agents.offline.offline_student_agent import (
-    LearnerState,
     OfflineStudentAgent,
     StudentProfile,
     StudentTurn,
@@ -22,15 +21,15 @@ from ..agents.offline.offline_tutor_turn_verifier_agent import (
     TutorHardCheck,
 )
 from ..common.code_runner import CodeRunner, TestRunResult
-from ..common.conversation import Conversation
-from ..common.models import BenchmarkCase, PedagogicalPlan, PlanProgress
+from ..common.models import BenchmarkCase, LearnerState, PedagogicalPlan, PlanProgress
 from .models import (
     CodeExecutionRecord,
+    DialogueRecords,
     GeneratedDialogue,
     StudentTurnRecord,
     TutorTurnRecord,
+    VerifiedPlan,
 )
-from .plan_generation import VerifiedPlan
 
 
 class DialogueGenerationError(RuntimeError):
@@ -81,9 +80,9 @@ class DialogueGenerator:
         variant: StudentVariant,
     ) -> GeneratedDialogue:
         dialogue_id = f"{case.case_id}__{variant.value}"
-        plan = verified_plan.output.plan
+        plan: PedagogicalPlan = verified_plan.output.plan
 
-        student = OfflineStudentAgent(
+        student: OfflineStudentAgent = OfflineStudentAgent(
             llm=self._llm,
             model=self._student_model,
             case=case,
@@ -91,20 +90,19 @@ class DialogueGenerator:
             variant=variant,
         )
 
-        tutor = OfflineTutorAgent(
+        tutor: OfflineTutorAgent = OfflineTutorAgent(
             llm=self._llm,
             model=self._tutor_model,
             case=case,
             planner_output=verified_plan.output,
         )
 
-        progress = PlanProgress(
+        progress: PlanProgress = PlanProgress(
             completed_step_ids=[],
             active_step_id=plan.steps[0].step_id,
         )
 
-        conversation = Conversation()
-        records: list[StudentTurnRecord | TutorTurnRecord] = []
+        dialogue_records = DialogueRecords()
         latest_code_execution: TestRunResult | None = None
 
         for _ in range(self._max_rounds):
@@ -114,39 +112,33 @@ class DialogueGenerator:
                     plan=plan,
                     progress=progress,
                     profile=profile,
-                    conversation=conversation,
+                    dialogue_records=dialogue_records,
                     student=student,
                 )
             )
-            conversation.add(student_turn.to_message())
+            student_record = StudentTurnRecord(
+                turn=student_turn,
+                code_execution=(
+                    CodeExecutionRecord.from_result(student_execution)
+                    if student_execution is not None
+                    else None
+                ),
+                hard_check=student_check,
+            )
+            dialogue_records.add_student(student_record)
 
             if student_execution is not None:
                 latest_code_execution = student_execution
-
-            records.append(
-                StudentTurnRecord(
-                    turn=student_turn,
-                    code_execution=(
-                        CodeExecutionRecord.from_result(student_execution)
-                        if student_execution is not None
-                        else None
-                    ),
-                    state_check=student_check,
-                )
-            )
 
             tutor_turn, hard_check = self._generate_verified_tutor_turn(
                 case=case,
                 plan=plan,
                 progress=progress,
-                conversation=conversation,
+                dialogue_records=dialogue_records,
                 tutor=tutor,
-                expected_learner_state=student_check.learner_state,
                 latest_code_execution=latest_code_execution,
             )
-
-            conversation.add(tutor_turn.to_message())
-            records.append(
+            dialogue_records.add_tutor(
                 TutorTurnRecord(
                     turn=tutor_turn,
                     hard_check=hard_check,
@@ -161,7 +153,6 @@ class DialogueGenerator:
             if self._is_complete(
                 plan=plan,
                 progress=progress,
-                tutor_turn=tutor_turn,
                 latest_code_execution=latest_code_execution,
             ):
                 if latest_code_execution is None:
@@ -175,8 +166,7 @@ class DialogueGenerator:
                     verified_plan=verified_plan,
                     profile=profile,
                     variant=variant,
-                    conversation=conversation,
-                    records=records,
+                    dialogue_records=dialogue_records,
                     progress=progress,
                     latest_code_execution=latest_code_execution,
                 )
@@ -192,25 +182,17 @@ class DialogueGenerator:
         plan: PedagogicalPlan,
         progress: PlanProgress,
         profile: StudentProfile,
-        conversation: Conversation,
+        dialogue_records: DialogueRecords,
         student: OfflineStudentAgent,
     ) -> tuple[StudentTurn, TestRunResult | None, StudentTurnCheck]:
         feedback = ""
 
         for _ in range(self._max_student_attempts):
             candidate = student.generate_turn(
-                conversation=conversation,
+                dialogue_history=dialogue_records.to_student_text(),
+                is_first_turn=dialogue_records.is_empty,
                 regeneration_feedback=feedback,
             )
-
-            # deterministic_error = self._student_candidate_error(
-            #     candidate=candidate,
-            #     conversation=conversation,
-            # )
-
-            # if deterministic_error:
-            #     feedback = deterministic_error
-            #     continue
 
             code_execution = None
             if candidate.proposed_code.strip():
@@ -224,7 +206,7 @@ class DialogueGenerator:
                 plan=plan,
                 progress=progress,
                 profile=profile,
-                conversation=conversation,
+                verified_history=dialogue_records.to_tutor_text(),
                 candidate=candidate,
                 code_execution=code_execution,
             )
@@ -232,12 +214,34 @@ class DialogueGenerator:
             if check.accepted:
                 return candidate, code_execution, check
 
-            feedback = (
-                check.regeneration_feedback
-                or "\n".join(check.reasons)
-                or "The previous Student turn failed verification."
-            )
+            feedback = self._student_regeneration_feedback(check)
         raise DialogueGenerationError("Could not generate an accepted Student turn.")
+
+    @staticmethod
+    def _student_regeneration_feedback(check: StudentTurnCheck) -> str:
+        """Return oracle-safe feedback that cannot leak hidden answers."""
+        issues: list[str] = []
+
+        if check.implausible_progression:
+            issues.append(
+                "Make the response follow naturally from the Student's existing "
+                "beliefs and the Tutor's actual guidance. Do not introduce knowledge "
+                "that the conversation has not established."
+            )
+
+        if check.oracle_leakage:
+            issues.append(
+                "Respond only from information available to the Student. Do not "
+                "mention or rely on private, oracle, verifier, or hidden-plan information."
+            )
+
+        if check.malformed_or_incoherent:
+            issues.append(
+                "Produce one coherent Student response. Include proposed_code only "
+                "when attempting a complete program revision."
+            )
+
+        return "\n".join(issues) or "Generate a more natural Student response."
 
     def _generate_verified_tutor_turn(
         self,
@@ -245,31 +249,32 @@ class DialogueGenerator:
         case: BenchmarkCase,
         plan: PedagogicalPlan,
         progress: PlanProgress,
-        conversation: Conversation,
+        dialogue_records: DialogueRecords,
         tutor: OfflineTutorAgent,
-        expected_learner_state: LearnerState,
         latest_code_execution: TestRunResult | None,
     ) -> tuple[TutorTurn, TutorHardCheck]:
         feedback = ""
+        if dialogue_records.pending_student is None:
+            raise ValueError("Tutor requires a pending verified Student turn.")
 
-        for _ in range(self._max_tutor_attempts):
+        for attempt in range(1, self._max_tutor_attempts + 1):
             candidate = tutor.generate_turn(
-                conversation=conversation,
+                verified_history=dialogue_records.to_tutor_text(),
                 progress=progress,
-                learner_state=expected_learner_state,
                 latest_code_execution=latest_code_execution,
                 regeneration_feedback=feedback,
             )
 
             deterministic_error = self._tutor_candidate_error(
                 candidate=candidate,
-                expected_learner_state=expected_learner_state,
                 plan=plan,
                 progress=progress,
                 latest_code_execution=latest_code_execution,
             )
 
             if deterministic_error:
+                print(f"  Tutor attempt {attempt} deterministic rejection:")
+                print(f"  {deterministic_error}")
                 feedback = deterministic_error
                 continue
 
@@ -277,14 +282,16 @@ class DialogueGenerator:
                 case=case,
                 plan=plan,
                 progress=progress,
-                conversation=conversation,
                 candidate=candidate,
-                expected_learner_state=expected_learner_state,
+                verified_history=dialogue_records.to_tutor_text(),
                 latest_code_execution=latest_code_execution,
             )
 
             if hard_check.accepted:
                 return candidate, hard_check
+
+            print(f"  Tutor attempt {attempt} verifier rejection:")
+            print(f"  {hard_check.model_dump_json(indent=2)}")
 
             feedback = (
                 hard_check.regeneration_feedback
@@ -292,49 +299,18 @@ class DialogueGenerator:
                 or "The previous Tutor turn failed hard verification."
             )
 
-        raise DialogueGenerationError("Could not generate an accepted Tutor turn.")
-
-    # @staticmethod
-    # def _student_candidate_error(
-    #     *,
-    #     candidate: StudentTurn,
-    #     conversation: Conversation,
-    # ) -> str:
-    #     if conversation.is_empty:
-    #         if candidate.learner_state != LearnerState.START:
-    #             return "The first Student turn must use learner_state START."
-
-    #         return ""
-
-    #     if candidate.learner_state == LearnerState.START:
-    #         return (
-    #             "START is allowed only for the first Student turn. "
-    #             "Choose the state that matches the response to the Tutor."
-    #         )
-
-    #     if candidate.learner_state == LearnerState.END:
-    #         return (
-    #             "Do not use END for a Student response. Use CORRECT or "
-    #             "COMPREHENSION when the Student has successfully understood "
-    #             "the current objective."
-    #         )
-
-    #     return ""
+        raise DialogueGenerationError(
+            f"Could not generate an accepted Tutor turn. Last feedback: {feedback}"
+        )
 
     @staticmethod
     def _tutor_candidate_error(
         *,
         candidate: TutorTurn,
-        expected_learner_state: LearnerState,
         plan: PedagogicalPlan,
         progress: PlanProgress,
         latest_code_execution: TestRunResult | None,
     ) -> str:
-        if candidate.learner_state != expected_learner_state:
-            return (
-                "Use the supplied verified learner state exactly. "
-                f"learner_state must be {expected_learner_state.value}."
-            )
 
         if candidate.active_step_id != progress.active_step_id:
             return (
@@ -346,10 +322,7 @@ class DialogueGenerator:
             LearnerState.CORRECT,
             LearnerState.COMPREHENSION,
         }:
-            return (
-                "Do not mark the step complete unless the Student's response "
-                "demonstrates the current objective."
-            )
+            return "Do not mark the step complete unless the Student's response demonstrates the current objective."
 
         final_step_id = plan.steps[-1].step_id
 
@@ -358,10 +331,7 @@ class DialogueGenerator:
             and progress.active_step_id == final_step_id
             and (latest_code_execution is None or not latest_code_execution.passed)
         ):
-            return (
-                "Do not complete the final plan step yet. The Student must "
-                "first submit code that passes the tests."
-            )
+            return "Do not complete the final plan step yet. The Student must first submit code that passes the tests."
 
         return ""
 
@@ -406,7 +376,6 @@ class DialogueGenerator:
         *,
         plan: PedagogicalPlan,
         progress: PlanProgress,
-        tutor_turn: TutorTurn,
         latest_code_execution: TestRunResult | None,
     ) -> bool:
         return (
@@ -414,11 +383,6 @@ class DialogueGenerator:
             len(progress.completed_step_ids) == len(plan.steps)
             and latest_code_execution is not None
             and latest_code_execution.passed
-            and tutor_turn.learner_state
-            in {
-                LearnerState.CORRECT,
-                LearnerState.COMPREHENSION,
-            }
         )
 
     def _finalise(
@@ -429,8 +393,7 @@ class DialogueGenerator:
         verified_plan: VerifiedPlan,
         profile: StudentProfile,
         variant: StudentVariant,
-        conversation: Conversation,
-        records: list[StudentTurnRecord | TutorTurnRecord],
+        dialogue_records: DialogueRecords,
         progress: PlanProgress,
         latest_code_execution: TestRunResult,
     ) -> GeneratedDialogue:
@@ -446,7 +409,7 @@ class DialogueGenerator:
             case=case,
             planner_output=verified_plan.output,
             student_profile=profile,
-            dialogue_transcript=conversation.to_text(),
+            dialogue_transcript=dialogue_records.to_student_text(),
             completion_evidence=completion_evidence,
         )
 
@@ -462,9 +425,7 @@ class DialogueGenerator:
             source=case.source,
             student_variant=variant,
             student_profile=profile,
-            planner_output=verified_plan.output,
-            plan_verification=verified_plan.verification,
-            plan_attempts=verified_plan.attempts,
-            turns=records,
+            verified_plan=verified_plan,
+            records=dialogue_records,
             dialogue_verification=verification,
         )

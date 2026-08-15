@@ -28,7 +28,7 @@ class OfflineStudentProfileAgent(Agent):
         case: BenchmarkCase,
     ) -> StudentProfile:
         prompt = (
-            "Generate the private student misconception profile.\n\n"
+            "Generate the private student belief profile.\n\n"
             "RUNTIME-VISIBLE CASE:\n"
             f"{case.visible_context()}\n\n"
             "TRAINING-ONLY ORACLE:\n"

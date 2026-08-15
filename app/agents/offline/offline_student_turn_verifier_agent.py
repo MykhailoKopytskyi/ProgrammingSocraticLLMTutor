@@ -7,10 +7,8 @@ from pydantic import Field
 from app.common.config import STUDENT_TURN_VERIFIER_INSTRUCTIONS
 
 from ...common.code_runner import TestRunResult
-from ...common.conversation import Conversation
 from ...common.models import (
     BenchmarkCase,
-    LearnerState,
     PedagogicalPlan,
     PlanProgress,
     StrictModel,
@@ -39,7 +37,7 @@ class OfflineStudentTurnVerifierAgent(Agent):
         plan: PedagogicalPlan,
         progress: PlanProgress,
         profile: StudentProfile,
-        conversation: Conversation,
+        verified_history: str,
         candidate: StudentTurn,
         code_execution: TestRunResult | None = None,
     ) -> StudentTurnCheck:
@@ -62,7 +60,7 @@ class OfflineStudentTurnVerifierAgent(Agent):
             "CURRENT PLAN PROGRESS:\n"
             f"{progress.model_dump_json(indent=2)}\n\n"
             "ACCEPTED CONVERSATION BEFORE THIS STUDENT TURN:\n"
-            f"{conversation.to_text()}\n\n"
+            f"{verified_history}\n\n"
             "CANDIDATE STUDENT TURN:\n"
             f"{candidate.model_dump_json(indent=2)}\n\n"
             "CANDIDATE CODE EXECUTION:\n"
@@ -76,14 +74,11 @@ class OfflineStudentTurnVerifierAgent(Agent):
 
 
 class StudentTurnCheck(StrictModel):
-    learner_state: LearnerState
-
     implausible_progression: bool
     oracle_leakage: bool
     malformed_or_incoherent: bool
 
     reasons: list[str] = Field(default_factory=list)
-    regeneration_feedback: str | None = None
 
     @property
     def accepted(self) -> bool:

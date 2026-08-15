@@ -5,6 +5,7 @@ from typing import Any
 from pydantic import Field
 
 from app.agents.agent import Agent
+from app.common.config import OFFLINE_PROBLEM_TRANSLATION_AGENT_INSTRUCTIONS
 from app.common.models import StrictModel
 
 
@@ -23,12 +24,7 @@ class OfflineProblemTranslationAgent(Agent):
             llm=llm,
             model=model,
             reasoning_effort=reasoning_effort,
-            instructions=(
-                """Translate the supplied programming problem into clear English. 
-                Preserve every requirement, input/output rule, example, literal 
-                string, number, identifier and constraint. Do not solve the problem, 
-                add requirements or include commentary. """
-            ),
+            instructions=OFFLINE_PROBLEM_TRANSLATION_AGENT_INSTRUCTIONS,
         )
 
     def translate(self, problem_statement: str, feedback: str | None = None) -> str:

@@ -5,8 +5,6 @@ from typing import Any
 
 from ...common.code_runner import TestRunResult
 from ...common.config import OFFLINE_TUTOR_AGENT_INSTRUCTIONS
-from ...common.conversation import Conversation
-from ...common.message import Message
 from ...common.models import (
     BenchmarkCase,
     LearnerState,
@@ -19,17 +17,11 @@ from ..agent import Agent
 
 class TutorTurn(StrictModel):
     analysis_and_decision: str
-    learner_state: LearnerState
     active_step_id: str
     step_completed: bool
     tutor_action: TutorAction
     reply: str
-
-    def to_message(self) -> Message:
-        return Message(
-            role="tutor",
-            content=self.reply.strip(),
-        )
+    learner_state: LearnerState
 
 
 class TutorAction(str, Enum):
@@ -66,7 +58,6 @@ class OfflineTutorAgent(Agent):
         )
 
         self.case = case
-        self.planner_output = planner_output
 
     @staticmethod
     def _build_instructions(
@@ -90,23 +81,11 @@ class OfflineTutorAgent(Agent):
     def generate_turn(
         self,
         *,
-        conversation: Conversation,
+        verified_history: str,
         progress: PlanProgress,
-        learner_state: LearnerState,
-        previous_learner_states: list[LearnerState],
         latest_code_execution: TestRunResult | None = None,
         regeneration_feedback: str = "",
     ) -> TutorTurn:
-        last_message = conversation.last_message
-
-        if last_message is None:
-            raise ValueError("TutorAgent requires a student message")
-
-        if last_message["role"] != "student":
-            raise ValueError(
-                "TutorAgent conversation must end with the latest student message"
-            )
-
         execution_evidence = (
             "No student-submitted code has been executed yet."
             if latest_code_execution is None
@@ -118,9 +97,6 @@ class OfflineTutorAgent(Agent):
         prompt = (
             "Generate the tutor's next conversational turn in response to "
             "the final student message in the conversation history.\n\n"
-            "<verified_current_learner_state>\n"
-            f"{learner_state.value}\n"
-            "</verified_current_learner_state>\n\n"
             "<programming_case>\n"
             f"{self.case.visible_context()}\n"
             "</programming_case>\n\n"
@@ -131,7 +107,7 @@ class OfflineTutorAgent(Agent):
             f"{execution_evidence}\n"
             "</latest_student_code_execution>\n\n"
             "<conversation_history>\n"
-            f"{conversation.to_text()}\n"
+            f"{verified_history}\n"
             "</conversation_history>"
         )
 

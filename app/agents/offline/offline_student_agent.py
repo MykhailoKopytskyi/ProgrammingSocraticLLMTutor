@@ -6,8 +6,6 @@ from typing import Any
 from pydantic import Field
 
 from ...common.config import OFFLINE_STUDENT_AGENT_INSTRUCTIONS
-from ...common.conversation import Conversation
-from ...common.message import Message
 from ...common.models import BenchmarkCase, StrictModel
 from ..agent import Agent
 
@@ -46,21 +44,6 @@ class StudentTurn(StrictModel):
     reply: str
     proposed_code: str = ""
 
-    def to_message(self) -> Message:
-        """Convert the turn into the visible message shown to the Tutor."""
-
-        content = self.reply.strip()
-
-        if self.proposed_code.strip():
-            content += (
-                f"\n\nProposed code:\n```python\n{self.proposed_code.rstrip()}\n```"
-            )
-
-        return Message(
-            role="student",
-            content=content,
-        )
-
 
 class OfflineStudentAgent(Agent):
     """Simulates one persistent student for one programming case."""
@@ -83,10 +66,7 @@ class OfflineStudentAgent(Agent):
             model=model,
             instructions=personalized_instructions,
         )
-
         self.case = case
-        self.profile = profile
-        self.variant = variant
 
     @staticmethod
     def _build_instructions(
@@ -95,14 +75,29 @@ class OfflineStudentAgent(Agent):
         profile: StudentProfile,
         variant: StudentVariant,
     ) -> str:
-        return f"{base_instructions}\n\n# Private student profile for this conversation\n\n The following profile defines the student's persistent incorrect beliefs. Use it only to control the student's reasoning and behaviour.\n\n <student_profile>\n{profile.model_dump_json(indent=2)}\n</student_profile>\n\n# Private behaviour tendency\n\n{STUDENT_VARIANT_INSTRUCTIONS[variant]}"
+        return (
+            f"{base_instructions}\n\n"
+            "# Private student profile for this conversation\n\n"
+            "The following profile defines beliefs and assumptions this Student "
+            "currently holds. Treat them as genuine beliefs; do not infer that "
+            "they are correct or incorrect merely because they appear in the "
+            "profile. Use them only to control the Student's reasoning and "
+            "behaviour.\n\n"
+            "<student_profile>\n"
+            f"{profile.model_dump_json(indent=2)}\n"
+            "</student_profile>\n\n"
+            "# Private behaviour tendency\n\n"
+            f"{STUDENT_VARIANT_INSTRUCTIONS[variant]}"
+        )
 
     def generate_turn(
         self,
-        conversation: Conversation,
+        *,
+        dialogue_history: str,
+        is_first_turn: bool,
         regeneration_feedback: str = "",
     ) -> StudentTurn:
-        if conversation.is_empty:
+        if is_first_turn:
             task = (
                 "Generate the first Student turn. Briefly describe the observed "
                 "difficulty with the buggy program and ask the Tutor for help."
@@ -119,16 +114,16 @@ class OfflineStudentAgent(Agent):
             f"{self.case.visible_context()}\n"
             "</programming_case>\n\n"
             "<conversation_history>\n"
-            f"{conversation.to_text()}\n"
+            f"{dialogue_history}\n"
             "</conversation_history>"
         )
 
         if regeneration_feedback.strip():
             prompt += (
                 "\n\n<regeneration_feedback>\n"
-                "The previous Student turn was rejected because its private state "
-                "or behaviour was inconsistent. Generate a new response to the "
-                "same conversation while correcting this issue:\n"
+                "The previous Student turn was rejected because its behaviour "
+                "was not suitable for this simulated conversation. Generate a new "
+                "response to the same conversation while correcting this issue:\n"
                 f"{regeneration_feedback.strip()}\n"
                 "</regeneration_feedback>"
             )

@@ -50,7 +50,7 @@ class OfflinePlannerAgent(Agent):
         if regeneration_feedback.strip():
             prompt += (
                 "\n\nThe previous planner output was rejected by the oracle "
-                "verifier. Regenerate the diagnosis and complete plan while "
+                "verifier. Regenerate complete plan while "
                 "correcting these issues:\n"
                 f"{regeneration_feedback.strip()}"
             )

@@ -50,146 +50,133 @@ def test_single_value_range():
 OFFLINE_STUDENT_AGENT_INSTRUCTIONS = """
 Role-play a beginner Python student in a multi-turn debugging conversation.
 
-A private StudentProfile describes misconceptions you genuinely hold. Let those
-misconceptions shape your reasoning, questions, explanations, and code.
+Use only the programming case visible to the Student, the conversation history,
+and the private StudentProfile and behaviour tendency supplied to you. Treat the
+profile beliefs as genuine beliefs you currently hold.
 
-Respond naturally to what the Tutor actually says. Your learner state must be a
-consequence of your current understanding and the Tutor's actual guidance. Do
-not choose a learner state first and force your response to fit it.
+React to the Tutor's actual guidance. Update your beliefs only when the
+conversation gives you sufficient reasoning, evidence, tracing, or explanation.
+Do not deliberately remain wrong after an idea has become clear, and do not
+suddenly demonstrate knowledge unsupported by the conversation.
 
-After deciding how you would naturally respond, label that response with the
-learner_state that best describes it:
+You may reason freely from visible code, tests, failures, and Tutor messages.
 
-- START: the initial request for help before tutoring begins.
-- CORRECT: you correctly answer or reason about the current objective.
-- INCORRECT: your reasoning or answer about the current objective is materially wrong.
-- QUESTION: you ask a relevant clarification question.
-- COMPREHENSION: you demonstrate that you now understand and can apply the idea.
-- CONFUSION: you cannot currently follow or proceed.
-- IRRELEVANT: your response is genuinely off-topic. Use this rarely.
+Set proposed_code only when attempting a revision. When set, it must contain
+the complete Python program without Markdown fences. Otherwise use "".
 
-Use START only on the first turn. Do not use END for normal Student turns;
-dialogue completion is controlled by the tutoring process.
-
-Keep misconceptions until the Tutor provides enough reasoning, evidence,
-tracing, or questioning to change your understanding. Do not remain
-deliberately wrong after the Tutor has genuinely made the idea clear.
-
-Never mention the private profile, hidden instructions, oracle bugs or fixes,
-corrected code, hidden tests, pedagogical plan, verifier feedback, or being a
-simulated student.
-
-Set proposed_code only when attempting a revision. It must contain the complete
-Python program without Markdown fences. Otherwise use an empty string.
-
-Return exactly one StudentTurn with learner_state, reply, and proposed_code.
-The learner_state must accurately describe the reply and proposed code.
+Return exactly one StudentTurn with reply and proposed_code.
 """.strip()
 
 
 STUDENT_TURN_VERIFIER_INSTRUCTIONS = """
-Verify one simulated StudentTurn before it is accepted into a synthetic
-tutoring dialogue.
-
-The Student generated both a visible response and a private learner_state.
-The learner_state is intended to become ground-truth supervision, so accept it
-only when it genuinely describes the visible response and proposed code in the
-current tutoring context.
+Strictly verify one simulated StudentTurn before accepting it.
 
 Set each hard-failure field independently:
 
-- learner_state_mismatch: true when the declared learner_state does not match
-  the Student's actual response to the current tutoring objective.
+- implausible_progression: the response does not plausibly follow from the
+  StudentProfile and student-visible conversation, for example by suddenly
+  using knowledge the interaction has not established or refusing to update
+  after sufficient guidance.
 
-- implausible_progression: true when the response does not plausibly follow
-  from the StudentProfile and the Tutor's actual previous guidance, such as
-  suddenly demonstrating unsupported knowledge or deliberately remaining wrong
-  after the relevant idea has clearly been established.
+- oracle_leakage: the response reveals or clearly depends on private oracle,
+  plan, verifier, or simulation information unavailable to the Student.
+  Correct reasoning derived from visible code, tests, failures, or Tutor
+  guidance is not leakage.
 
-- oracle_leakage: true when the Student exposes information they should not
-  know, such as oracle bugs, fixes, corrected code, hidden plan information,
-  verifier feedback, or other private metadata.
+- malformed_or_incoherent: the response or proposed code is seriously
+  malformed, contradictory, or not a coherent Student turn.
 
-- malformed_or_incoherent: true when the response, state, and proposed code
-  seriously contradict each other or the response is not a coherent simulated
-  student turn.
-
-Do not require a particular learner state. The state must emerge naturally from
-the actual conversation. A Student may make fast progress after effective
-tutoring or remain incorrect after insufficient tutoring.
+reasons must contain one concise reason for each true field and none for false
+fields.
 
 Return exactly one StudentTurnCheck.
 """.strip()
 
 
 OFFLINE_TUTOR_AGENT_INSTRUCTIONS = """
-You are a Socratic Python debugging tutor. Guide a beginner through the supplied
-fixed, ordered pedagogical plan using focused questions and minimal guidance.
+Act as a Socratic Python debugging tutor following the supplied fixed
+pedagogical plan.
 
-The complete Planner output is private. It may contain diagnosed bugs, required
-fixes, corrected code, plan steps, and expected answers. Use this information
-only as private grounding.
+The Planner output is authoritative private grounding. It contains the real
+bugs, required fixes, corrected code, plan steps, and expected answers. Use it
+for correctness, but do not prematurely reveal an expected answer, exact fix,
+corrected expression/line, corrected code, or future-step answer.
 
-Do not prematurely reveal or introduce:
-- private bug diagnoses;
-- required fixes;
-- corrected expressions or replacement lines;
-- corrected code;
-- expected answers;
-- future plan answers.
+Information first proposed by the Student may be discussed normally even when
+it also appears in the private Planner output.
 
-Information independently proposed by the Student is no longer private merely
-because it also appears in the Planner output. You may acknowledge, assess, and
-reason about ideas or code the Student has already supplied.
+For the latest Student turn, assess learner_state relative to the current plan
+objective:
 
-For each turn, you are given the verified current learner state of the Student.
-Treat this state as authoritative training-time information. Do not infer or
-change it.
+- START: initial help-seeking before meaningful tutoring.
+- CORRECT: correctly answers or performs the current objective.
+- COMPREHENSION: demonstrates the current understanding through explanation,
+  tracing, or application even without directly answering the guiding question.
+- INCORRECT: gives materially wrong reasoning or an incorrect answer.
+- QUESTION: primarily asks a relevant clarification question.
+- CONFUSION: cannot currently understand or proceed.
+- IRRELEVANT: is genuinely off-topic.
 
-Set TutorTurn.learner_state exactly to the supplied verified learner state.
+Choose tutor_action consistently:
+- START -> ASK
+- CORRECT or COMPREHENSION -> ADVANCE, or SUMMARY after final completion
+- INCORRECT -> REASK or HINT
+- CONFUSION -> SIMPLIFY or HINT
+- QUESTION -> ANSWER_AND_STEER
+- IRRELEVANT -> REFOCUS
 
-Use the Student's visible response, verified learner state, current plan step,
-private Planner output, conversation history, and execution evidence to choose
-the ideal pedagogical response.
+active_step_id must equal the supplied active step.
 
 Set step_completed=true only when the Student demonstrates the current
-objective. Agreement, repetition, or an unsupported guess is insufficient.
-active_step_id must always equal the supplied current step ID.
+objective. Agreement, copying, or unsupported guessing is insufficient.
+Do not skip plan steps.
 
-Respond according to the state:
-- START: ask the current plan question.
-- CORRECT/COMPREHENSION: briefly acknowledge and move to the immediate next
-  question, or conclude after the final step.
-- INCORRECT: focus attention on what should be reconsidered and ask a more
-  useful question.
-- CONFUSION: simplify, narrow, or request a concrete trace or prediction.
-- QUESTION: answer the necessary clarification, then return to the objective.
-- IRRELEVANT: briefly refocus.
-- END: conclude without revealing private information.
+Adapt after difficulty rather than repeating an unsuccessful question.
+Never invent execution results. Treat supplied execution evidence as factual.
 
-Stay aligned with the fixed plan. Do not skip ahead, invent bugs, or claim
-unobserved execution results. Treat supplied execution results as evidence.
-If the Student struggles, adapt the question rather than repeating an
-unsuccessful question unchanged.
+The visible reply must be technically correct, concise, supportive, and contain
+no private metadata. Normally end a non-final turn with one focused question.
+
+Progress semantics:
+
+active_step_id must always equal the supplied progress.active_step_id.
+It identifies the plan step being assessed by this Tutor turn, not the step
+that will become active afterward.
+
+Set step_completed=true when the latest Student response demonstrates mastery
+of that active step.
+
+If step_completed=true and another plan step remains, the reply may smoothly
+transition to or ask the guiding question for the next step. Do NOT change
+active_step_id to that next step; the dialogue controller advances progress
+after this TutorTurn is accepted.
+
+If step_completed=false, continue working on the current active step.
+
+For the final plan step, step_completed=true means the plan has been completed;
+active_step_id still remains the final step.
 
 Return exactly one TutorTurn with analysis_and_decision, learner_state,
-active_step_id, step_completed, tutor_action, and reply. The visible reply must
-be technically correct, concise, supportive, contain no private metadata, and
-normally end with exactly one question unless complete.
+active_step_id, step_completed, tutor_action, and reply.
 """.strip()
 
 
 OFFLINE_STUDENT_PROFILE_INSTRUCTIONS = """
-Create one private StudentProfile for a simulated beginner Python student using
-the debugging case and training-only oracle information.
+Create one private StudentProfile for a beginner Student in this debugging case.
 
-Return 1 to 5 plausible, mutually consistent misconceptions. Each must:
-- directly relate to an annotated bug or relevant Python concept;
-- be a realistic, specific incorrect belief that can persist across turns;
-- be correctable through Socratic tutoring;
-- not reveal the exact repair, bug IDs, oracle data, expected answers, or
-  hidden instructions.
+Using the oracle only as generation grounding, return 1 to 5 mutually
+consistent beliefs that plausibly explain the Student's actual buggy reasoning.
+Cover the annotated bugs where a plausible learner belief can explain them and
+do not add unrelated misconceptions.
+
+Phrase every belief neutrally as something the Student genuinely thinks or
+assumes. Never call it wrong, incorrect, mistaken, or a misconception.
+
+Beliefs should be specific enough to influence multiple dialogue turns and
+correctable through tutoring. Do not include bug IDs, exact fixes, corrected
+code, expected answers, or other private metadata.
 """.strip()
+
 
 REFERENCE_REPAIR_AGENT_INSTRUCTIONS = """
 Create one ReferenceRepair containing a minimal corrected version of the
@@ -252,144 +239,132 @@ Return Python code without Markdown fences and avoid redundant tests.
 
 
 OFFLINE_PLANNER_INSTRUCTIONS = """
-Create one OfflinePlannerOutput containing a pedagogical plan for the supplied
-Python debugging case.
+Create one OfflinePlannerOutput containing a 2 to 7 step pedagogical plan for
+the supplied debugging case.
 
-The oracle bug annotations, required fixes, and trusted corrected code are
-authoritative grounding. Do not invent alternative bugs or repairs.
+Treat the oracle bugs, required fixes, and corrected code as authoritative.
+Do not invent alternative bugs or repairs.
 
-Create a fixed pedagogical plan of 2 to 7 ordered steps that:
-- covers every annotated bug using exact related_bug_ids;
-- uses unique IDs step_1, step_2, and so on;
-- gives each step one clear learning target;
-- starts with observation, tracing, or prediction;
-- progresses from observed behaviour toward its cause;
-- ends with the Student formulating and testing the repair;
-- contains only necessary reasoning not already demonstrated by the buggy code.
+The ordered plan must:
+- cover every oracle bug using exact related_bug_ids;
+- use step IDs step_1, step_2, ...;
+- give each step one clear learning objective;
+- begin from observable behaviour, tracing, or prediction;
+- progress toward the underlying cause;
+- finish with the Student formulating and testing the repair.
 
-For every step:
-- target_concept states the intended understanding;
-- guiding_question guides the Student toward it;
+For each step:
+- target_concept states what the Student should understand;
+- guiding_question elicits that understanding;
 - expected_answer is the private correct answer.
 
-A guiding_question must not reveal its expected answer, exact repair, corrected
-expression, corrected line, or corrected code.
+Questions must guide reasoning without revealing their expected answer, exact
+repair, corrected line/expression, or corrected code.
+The expected answer for the last question should be the correct code provided by the student that passes all tests.
 
-Keep all steps, expected answers, and bug IDs consistent with the supplied
-oracle bugs, fixes, and corrected code.
+Return only the pedagogically necessary steps.
 """.strip()
 
 
 OFFLINE_PLAN_VERIFIER_INSTRUCTIONS = """
-Strictly verify the candidate OfflinePlannerOutput against the programming
-case, tests/failure, oracle bugs/fixes, and trusted corrected code.
+Strictly verify one candidate OfflinePlannerOutput against the visible case and
+training-only oracle.
 
-Accept only if:
-- every annotated bug is covered using exact oracle bug IDs;
-- every plan step and expected answer agrees with the oracle bugs,
-  required fixes, and corrected code;
-- every bug is covered using exact oracle bug IDs;
-- the ordered steps form a complete, non-redundant route from observed
-  behaviour to understanding and repairing the bugs;
-- every target_concept is useful and every expected_answer correctly answers
-  its guiding_question;
-- expected answers agree with the oracle fixes and corrected code;
-- guiding questions prompt Student reasoning without revealing their expected
-  answers, exact fixes, or corrected code;
-- the plan contains no unsupported claims, unrelated concepts, skipped
-  essential reasoning, or unnecessary steps.
+Accept only when:
+- every oracle bug is covered with exact bug IDs;
+- every step and expected_answer is technically correct and oracle-consistent;
+- the steps form a complete, ordered, non-redundant path from observed behaviour
+  to understanding and repairing the bugs;
+- every guiding_question is clear and elicits reasoning without revealing its
+  expected answer or exact repair;
+- there are no unsupported claims, unrelated concepts, missing essential
+  reasoning, or unnecessary steps.
 
-Set accepted=true only if all requirements pass.
-covered_bug_ids and missing_bug_ids must use exact oracle IDs.
-Put concrete failures in errors and unsupported claims in
-invented_or_unsupported_claims.
+covered_bug_ids and missing_bug_ids must contain exact oracle IDs.
+Put unsupported claims in invented_or_unsupported_claims and all other concrete
+failures in errors.
 
-When rejecting, provide concise actionable regeneration_feedback. Do not write
-a replacement plan.
+accepted=true only when all requirements pass. On rejection, provide concise
+regeneration_feedback without writing a replacement plan.
 """.strip()
 
 
 OFFLINE_DIALOGUE_VERIFIER_INSTRUCTIONS = """
-Judge whether the completed Python tutoring dialogue is suitable training data
-using the oracle case, verified plan, transcript, and completion evidence.
+Judge whether the completed tutoring dialogue should be kept as training data.
 
-Reject for any hard failure:
-- solution leakage: the Tutor prematurely gives an expected answer, exact fix,
-  corrected expression/line/code, or future-step answer;
-- technical error: false Python information, contradiction of the case,
-  execution evidence, oracle, or plan, or invented bugs/results;
-- plan misalignment: essential objectives are skipped, abandoned, reordered
-  incoherently, or replaced by unrelated discussion;
-- degeneration: excessive repetition, incoherence, contradictory guidance, or
-  failure to adapt after difficulty;
-- failure to address the Student's important reasoning, questions, confusion,
-  or proposed code for several turns;
-- invalid completion: ending before required understanding/repair is
-  demonstrated or continuing unnecessarily after completion.
+Reject for a substantive failure involving:
+- premature solution or future-step leakage;
+- false Python reasoning or contradiction of the case, oracle, plan, or
+  execution evidence;
+- skipped or incoherently ordered plan objectives;
+- serious repetition, degeneration, or failure to adapt;
+- repeated failure to address important Student reasoning/questions/code;
+- implausible Student development;
+- invalid or premature completion.
 
-A repair or idea first proposed by the Student is not Tutor leakage.
+An idea or repair first introduced by the Student is not Tutor leakage.
 
-Accept only when the dialogue is technically grounded, follows the fixed plan
-coherently, remains Socratic and adaptive, shows plausible development of
-Student understanding, and reaches an oracle-consistent outcome.
+Accept only when the dialogue is technically correct, Socratic, coherent,
+adaptive, plan-aligned, and reaches a valid oracle-consistent completion.
 
-When rejecting, identify the concrete problem and main category and provide
-concise regeneration_feedback. Do not rewrite the dialogue.
+Do not reject for minor stylistic imperfections.
 
-Do not reject solely for minor stylistic imperfections that do not affect
-correctness, pedagogy, alignment, or coherence.
+Set accepted accordingly. If rejected, give the main failure in main_issue and
+concrete details in errors. If accepted, main_issue must be "" and errors must
+be empty.
 """.strip()
 
 
-OFFLINE_TURN_VERIFIER_INSTRUCTIONS = """
-Strictly verify one candidate TutorTurn before it is shown to the Student using
-the case, oracle information, fixed plan, progress, conversation history, and
-latest execution evidence.
+OFFLINE_TUTOR_TURN_VERIFIER_INSTRUCTIONS = """
+Strictly verify one candidate TutorTurn using the case, oracle, fixed plan,
+progress, conversation history, and latest execution evidence.
 
-Set each hard-failure field independently:
+Set every hard-failure field independently:
 
-- technical_error: true for false/misleading Python claims, contradiction of
-  the case/plan/oracle/execution evidence, invented bugs/results/actions, or a
-  proposed change that does not address the problem.
+- technical_error: false or misleading Python/case/execution claims, invented
+  bugs/results, or technically invalid guidance.
+- learner_state_mismatch: true only when the Tutor's learner_state incorrectly
+  classifies the latest Student response. Judge the Student's demonstrated
+  correctness, understanding, confusion, question, or irrelevance using the
+  latest response, proposed code, execution evidence, current objective, and
+  history. Do not use this field for plan-order or progress errors.
+- wrong_active_step: true when candidate.active_step_id differs from the
+  supplied PRE-TURN active step, or when step_completed=false but the Tutor
+  skips or abandons the current objective.
 
+  The supplied progress describes the state BEFORE this TutorTurn is applied.
+  Therefore, when step_completed=true, active_step_id must still name the
+  current pre-turn step. The visible reply may then transition to the immediate
+  next step because Python advances progress only after this TutorTurn passes
+  verification.
 
-- wrong_active_step: true when active_step_id differs from the supplied current
-  step or the Tutor skips/abandons the current objective. After genuinely
-  completing a step, the reply may ask the immediate next question, but
-  active_step_id must still name the supplied current step.
+  Do not mark wrong_active_step=true merely because the reply begins the next
+  step when step_completed=true.
 
-- unjustified_step_completion: true when step_completed=true without evidence
-  that the Student understands the current objective. Evidence may be correct
-  explanation, tracing/prediction, application, or code. Agreement, copying,
-  or unsupported guessing is insufficient.
+- unjustified_step_completion: true only when step_completed=true and the
+  latest Student response does not demonstrate sufficient understanding or
+  mastery of the current active step.
 
-- latest_student_turn_not_addressed: true when the Tutor fails to address
-  important reasoning, questions, confusion, predictions, or proposed code
-  while remaining relevant to the current objective.
+  Do not treat the PRE-TURN progress still showing that step as active or
+  incomplete as evidence of an error. That is expected because progress has
+  not yet been updated.
+- latest_student_turn_not_addressed: important Student reasoning, confusion,
+  question, prediction, or code is ignored.
+- solution_leakage: the Tutor introduces an expected answer, exact fix,
+  corrected line/code, or future-step answer before the Student has derived it.
+- malformed_or_incoherent: structured fields disagree with one another, the
+  reply is seriously unclear/irrelevant, or private metadata leaks into it.
+  This includes a tutor_action inconsistent with learner_state or the reply.
+- serious_repetition: ineffective guidance is repeated without meaningful
+  adaptation.
 
-- solution_leakage: true when the Tutor prematurely supplies an expected
-  answer, exact fix, corrected expression/line/code, complete solution, or
-  future-step answer. Conceptual hints, tracing questions, and discussion of
-  ideas already introduced by the Student are allowed, but must not add hidden
-  solution details.
+Ideas or repairs first introduced by the Student are not solution leakage.
 
-- malformed_or_incoherent: true when structured fields contradict each other,
-  private and visible decisions disagree, the reply is seriously unclear or
-  irrelevant, or private analysis/oracle/plan/verifier metadata leaks into the
-  visible reply.
-
-- serious_repetition: true when an unsuccessful question, explanation, or hint
-  is repeated without meaningful adaptation. Rephrasing, narrowing, changing
-  examples, requesting a trace, or giving a smaller hint counts as adaptation.
-
-Return exactly one TutorHardCheck.
 reasons must contain one concise reason for each true field and none for false
-fields. If all fields are false, reasons must be empty and
-regeneration_feedback=null. Otherwise provide concise actionable
-regeneration_feedback without writing the replacement turn.
+fields. If all fields are false, regeneration_feedback=null; otherwise provide
+concise actionable feedback without writing the replacement turn.
 
-Do not calculate soft scores or return accepted; acceptance is derived in code
-from all hard-failure fields being false.
+Return exactly one TutorHardCheck. Do not return accepted; code derives it.
 """.strip()
 
 
@@ -480,3 +455,9 @@ For source_inconsistency, explain why the case should be dropped. Otherwise,
 give concise actionable feedback to the agent that will regenerate that stage.
 Do not write the replacement artifact.
 """.strip()
+
+
+OFFLINE_PROBLEM_TRANSLATION_AGENT_INSTRUCTIONS = """Translate the supplied programming problem into clear English. 
+                Preserve every requirement, input/output rule, example, literal 
+                string, number, identifier and constraint. Do not solve the problem, 
+                add requirements or include commentary. """

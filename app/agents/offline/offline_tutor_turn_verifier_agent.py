@@ -5,11 +5,14 @@ from typing import Any
 from pydantic import Field
 
 from ...common.code_runner import TestRunResult
-from ...common.config import OFFLINE_TURN_VERIFIER_INSTRUCTIONS
-from ...common.conversation import Conversation
-from ...common.models import BenchmarkCase, PedagogicalPlan, PlanProgress, StrictModel
+from ...common.config import OFFLINE_TUTOR_TURN_VERIFIER_INSTRUCTIONS
+from ...common.models import (
+    BenchmarkCase,
+    PedagogicalPlan,
+    PlanProgress,
+    StrictModel,
+)
 from ..agent import Agent
-from .offline_student_agent import LearnerState
 from .offline_tutor_agent import TutorTurn
 
 
@@ -18,7 +21,7 @@ class OfflineTutorTurnVerifierAgent(Agent):
         self,
         llm: Any,
         model: str,
-        instructions: str = OFFLINE_TURN_VERIFIER_INSTRUCTIONS,
+        instructions: str = OFFLINE_TUTOR_TURN_VERIFIER_INSTRUCTIONS,
     ):
         super().__init__(
             llm=llm,
@@ -32,22 +35,10 @@ class OfflineTutorTurnVerifierAgent(Agent):
         case: BenchmarkCase,
         plan: PedagogicalPlan,
         progress: PlanProgress,
-        conversation: Conversation,
         candidate: TutorTurn,
-        expected_learner_state: LearnerState,
+        verified_history: str,
         latest_code_execution: TestRunResult | None = None,
     ) -> TutorHardCheck:
-        last_message = conversation.last_message
-
-        if last_message is None:
-            raise ValueError("OfflineTurnVerifierAgent requires conversation history")
-
-        if last_message["role"] != "student":
-            raise ValueError(
-                "Conversation must end with the Student message to which the "
-                "candidate responds"
-            )
-
         execution_evidence = (
             "No student-submitted code has been executed yet."
             if latest_code_execution is None
@@ -65,14 +56,12 @@ class OfflineTutorTurnVerifierAgent(Agent):
             f"{case.oracle_context()}\n\n"
             "FIXED PEDAGOGICAL PLAN:\n"
             f"{plan.model_dump_json(indent=2)}\n\n"
-            "CURRENT PLAN PROGRESS:\n"
+            "PRE-TURN PLAN PROGRESS:\n"
             f"{progress.model_dump_json(indent=2)}\n\n"
             "LATEST STUDENT CODE EXECUTION:\n"
             f"{execution_evidence}\n\n"
             "ACCEPTED CONVERSATION HISTORY:\n"
-            f"{conversation.to_text()}\n\n"
-            "VERIFIED STUDENT LEARNER STATE:\n"
-            f"{expected_learner_state.value}\n\n"
+            f"{verified_history}\n\n"
             "CANDIDATE TUTOR TURN:\n"
             f"{candidate.model_dump_json(indent=2)}"
         )
@@ -85,6 +74,7 @@ class OfflineTutorTurnVerifierAgent(Agent):
 
 class TutorHardCheck(StrictModel):
     technical_error: bool
+    learner_state_mismatch: bool
     wrong_active_step: bool
     unjustified_step_completion: bool
     latest_student_turn_not_addressed: bool
@@ -106,5 +96,6 @@ class TutorHardCheck(StrictModel):
                 self.solution_leakage,
                 self.malformed_or_incoherent,
                 self.serious_repetition,
+                self.learner_state_mismatch,
             )
         )

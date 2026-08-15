@@ -23,7 +23,6 @@ class LearnerState(str, Enum):
     COMPREHENSION = "COMPREHENSION"
     CONFUSION = "CONFUSION"
     IRRELEVANT = "IRRELEVANT"
-    END = "END"
 
 
 class BenchmarkCase(StrictModel):

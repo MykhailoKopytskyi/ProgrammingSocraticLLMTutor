@@ -30,6 +30,7 @@ from .models import (
     TutorTurnRecord,
     VerifiedPlan,
 )
+from ..agents.agent import AgentResponseError
 
 
 class DialogueGenerationError(RuntimeError):
@@ -310,31 +311,54 @@ class DialogueGenerator:
         plan: PedagogicalPlan,
         progress: PlanProgress,
         latest_code_execution: TestRunResult | None,
-    ) -> str:
+    ) -> str | None:
 
-        if candidate.active_step_id != progress.active_step_id:
-            return (
-                "Use the supplied active step. The active step is "
-                f"{progress.active_step_id}."
-            )
+        if candidate.completed_through_step_id is not None:
+            if candidate.learner_state not in {
+                LearnerState.CORRECT,
+                LearnerState.COMPREHENSION,
+            }:
+                return (
+                    "Do not mark plan objectives complete unless the Student "
+                    "demonstrates sufficient understanding."
+                )
 
-        if candidate.step_completed and candidate.learner_state not in {
-            LearnerState.CORRECT,
-            LearnerState.COMPREHENSION,
-        }:
-            return "Do not mark the step complete unless the Student's response demonstrates the current objective."
+            active_index = None
+            completed_through_index = None
 
-        final_step_id = plan.steps[-1].step_id
+            for index, step in enumerate(plan.steps):
+                if step.step_id == progress.active_step_id:
+                    active_index = index
 
-        if (
-            candidate.step_completed
-            and progress.active_step_id == final_step_id
-            and (latest_code_execution is None or not latest_code_execution.passed)
-        ):
-            return "Do not complete the final plan step yet. The Student must first submit code that passes the tests."
+                if step.step_id == candidate.completed_through_step_id:
+                    completed_through_index = index
 
-        return ""
+            if completed_through_index is None:
+                return "completed_through_step_id must be a valid plan step."
 
+            if active_index is None:
+                return f"Unknown active step: {progress.active_step_id}."
+
+            if completed_through_index < active_index:
+                return (
+                    "completed_through_step_id cannot precede the current "
+                    "active plan step."
+                )
+
+            if (
+                completed_through_index == len(plan.steps) - 1
+                and (
+                    latest_code_execution is None
+                    or not latest_code_execution.passed
+                )
+            ):
+                return (
+                    "Do not complete through the final plan step until the "
+                    "Student has submitted code that passes the tests."
+                )
+        return None 
+
+    
     @staticmethod
     def _update_progress(
         *,
@@ -342,33 +366,47 @@ class DialogueGenerator:
         progress: PlanProgress,
         tutor_turn: TutorTurn,
     ) -> PlanProgress:
-        if not tutor_turn.step_completed:
+        if tutor_turn.completed_through_step_id is None:
             return progress
 
-        completed = [
-            *progress.completed_step_ids,
-            progress.active_step_id,
-        ]
+        active_index = None
+        completed_through_index = None
 
-        current_index = None
         for index, step in enumerate(plan.steps):
             if step.step_id == progress.active_step_id:
-                current_index = index
-                break
+                active_index = index
 
-        if current_index is None:
+            if step.step_id == tutor_turn.completed_through_step_id:
+                completed_through_index = index
+
+        if active_index is None:
             raise ValueError(f"Unknown active step: {progress.active_step_id}")
 
-        if current_index == len(plan.steps) - 1:
-            return PlanProgress(
-                completed_step_ids=completed,
-                active_step_id=progress.active_step_id,
+        if completed_through_index is None:
+            raise ValueError(
+                "Unknown completed-through step: "
+                f"{tutor_turn.completed_through_step_id}"
             )
 
-        # Move to the next step_id
+        if completed_through_index < active_index:
+            raise ValueError(
+                "completed_through_step_id cannot precede the active step."
+            )
+
+        completed = list(progress.completed_step_ids)
+
+        for index in range(active_index, completed_through_index + 1):
+            completed.append(plan.steps[index].step_id)
+
+        if completed_through_index == len(plan.steps) - 1:
+            return PlanProgress(
+                completed_step_ids=completed,
+                active_step_id=plan.steps[-1].step_id,
+            )
+
         return PlanProgress(
             completed_step_ids=completed,
-            active_step_id=plan.steps[current_index + 1].step_id,
+            active_step_id=plan.steps[completed_through_index + 1].step_id,
         )
 
     @staticmethod

@@ -17,8 +17,7 @@ from ..agent import Agent
 
 class TutorTurn(StrictModel):
     analysis_and_decision: str
-    active_step_id: str
-    step_completed: bool
+    completed_through_step_id: str | None
     tutor_action: TutorAction
     reply: str
     learner_state: LearnerState
@@ -55,6 +54,7 @@ class OfflineTutorAgent(Agent):
             llm=llm,
             model=model,
             instructions=personalized_instructions,
+            max_output_tokens=2500,
         )
 
         self.case = case

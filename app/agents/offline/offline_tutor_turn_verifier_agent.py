@@ -81,6 +81,8 @@ class TutorHardCheck(StrictModel):
     solution_leakage: bool
     malformed_or_incoherent: bool
     serious_repetition: bool
+    missed_step_completion: bool
+    
 
     reasons: list[str] = Field(default_factory=list)
     regeneration_feedback: str | None = None
@@ -97,5 +99,6 @@ class TutorHardCheck(StrictModel):
                 self.malformed_or_incoherent,
                 self.serious_repetition,
                 self.learner_state_mismatch,
+                self.missed_step_completion
             )
         )

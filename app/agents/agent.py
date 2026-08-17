@@ -1,8 +1,7 @@
 from abc import ABC
 from typing import Any, TypeVar
 
-from pydantic import BaseModel
-
+from pydantic import BaseModel, ValidationError
 StructuredOutputT = TypeVar("StructuredOutputT", bound=BaseModel)
 
 
@@ -17,11 +16,13 @@ class Agent(ABC):
         model: str,
         instructions: str,
         reasoning_effort: str | None = None,
+        max_output_tokens: int | None = None,
     ):
         self.llm = llm
         self.model = model
         self.instructions = instructions
         self.reasoning_effort = reasoning_effort
+        self.max_output_tokens = max_output_tokens
 
     def _get_structured_output(
         self,
@@ -30,12 +31,17 @@ class Agent(ABC):
     ) -> StructuredOutputT:
         """Request structured output and validate it against a model."""
 
+        
+
         request = {
             "model": self.model,
             "instructions": self.instructions,
             "input": prompt,
             "text_format": output_type,
         }
+
+        if self.max_output_tokens is not None:
+            request["max_output_tokens"] = self.max_output_tokens
 
         if self.reasoning_effort:
             request["reasoning"] = {

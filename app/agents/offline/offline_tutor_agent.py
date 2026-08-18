@@ -54,7 +54,7 @@ class OfflineTutorAgent(Agent):
             llm=llm,
             model=model,
             instructions=personalized_instructions,
-            max_output_tokens=2500,
+            reasoning_effort="low",
         )
 
         self.case = case
@@ -83,7 +83,8 @@ class OfflineTutorAgent(Agent):
         *,
         verified_history: str,
         progress: PlanProgress,
-        latest_code_execution: TestRunResult | None = None,
+        learner_state: LearnerState,
+        latest_code_execution: TestRunResult | None,
         regeneration_feedback: str = "",
     ) -> TutorTurn:
         execution_evidence = (
@@ -103,6 +104,9 @@ class OfflineTutorAgent(Agent):
             "<plan_progress>\n"
             f"{progress.model_dump_json(indent=2)}\n"
             "</plan_progress>\n\n"
+            "<verified_learner_state>\n"
+            f"{learner_state.value}\n"
+            "</verified_learner_state>\n\n"
             "<latest_student_code_execution>\n"
             f"{execution_evidence}\n"
             "</latest_student_code_execution>\n\n"

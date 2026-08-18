@@ -90,7 +90,7 @@ class PlanStep(StrictModel):
 
 class PedagogicalPlan(StrictModel):
     plan_summary: str
-    steps: list[PlanStep] = Field(min_length=2, max_length=7)
+    steps: list[PlanStep] = Field(min_length=3, max_length=8)
 
     @model_validator(mode="after")
     def validate_unique_step_ids(self) -> PedagogicalPlan:
@@ -120,8 +120,7 @@ class PlannerOutput(StrictModel):
 
 
 class PlanProgress(StrictModel):
-    completed_step_ids: list[str]
-    active_step_id: str
+    completed_through_step_id: str | None = None
 
 
 class TutorTurnQualityEvaluation(StrictModel):

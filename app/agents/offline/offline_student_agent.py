@@ -6,7 +6,7 @@ from typing import Any
 from pydantic import Field
 
 from ...common.config import OFFLINE_STUDENT_AGENT_INSTRUCTIONS
-from ...common.models import BenchmarkCase, StrictModel
+from ...common.models import BenchmarkCase, LearnerState, StrictModel
 from ..agent import Agent
 
 
@@ -16,22 +16,99 @@ class StudentVariant(str, Enum):
     UNCERTAIN = "uncertain"
 
 
+# Reuse the same learner-state vocabulary that the Tutor predicts.
+# During offline synthesis this is the pre-specified target state for the Student turn.
+StudentTurnState = LearnerState
+
+
+STUDENT_TURN_STATE_INSTRUCTIONS = {
+    LearnerState.START: """
+START
+Give only an opening help-seeking turn: briefly report the visible debugging
+difficulty and ask the Tutor for help. Do not solve the bug or submit code.
+""".strip(),
+    LearnerState.CORRECT: """
+CORRECT
+Give a materially correct response to the Tutor's current request.
+
+Stay focused on the current objective. Do not deliberately abandon it to solve
+later objectives, although a direct correct answer may incidentally demonstrate
+something useful later.
+
+If the Tutor asks to implement, revise, apply, run, or verify the repaired
+program, submit the complete program in proposed_code.
+""".strip(),
+    LearnerState.INCORRECT: """
+INCORRECT
+Give a plausible but materially wrong response to the Tutor's current request.
+The central answer, reasoning, prediction, or attempted implementation must
+actually be wrong. Do not give the correct answer and merely hedge it.
+""".strip(),
+    LearnerState.QUESTION: """
+QUESTION
+Primarily ask one relevant technical clarification about the current objective
+instead of answering it. Minimal context is allowed, but do not give the full
+answer or submit code.
+""".strip(),
+    LearnerState.COMPREHENSION: """
+COMPREHENSION
+Demonstrate correct conceptual understanding of the current point in your own
+words. Explain a relevant relationship, cause, rule, or implication rather than
+giving only a bare answer.
+
+Stay focused on the current objective. A direct explanation may incidentally
+demonstrate something useful for a later objective.
+
+If the current Tutor request requires applying or verifying the repaired
+program, proposed_code may contain the complete revised program.
+""".strip(),
+    LearnerState.CONFUSION: """
+CONFUSION
+Show genuine inability to understand or proceed with the current point and ask
+for simpler guidance, an example, or a smaller step. Do not provide the
+solution or submit code.
+""".strip(),
+    LearnerState.IRRELEVANT: """
+IRRELEVANT
+Give a brief plausible off-topic response. Do not address the current debugging
+objective, provide solution progress, or submit code.
+""".strip(),
+}
+
+
+# ScaffoldLM data-synthesis distribution for turns after START:
+# Correct, Incorrect, Question, Comprehension, Confusion, Irrelevant.
+STUDENT_TURN_STATE_WEIGHTS = {
+    LearnerState.CORRECT: 0.50,
+    LearnerState.INCORRECT: 0.20,
+    LearnerState.QUESTION: 0.10,
+    LearnerState.COMPREHENSION: 0.10,
+    LearnerState.CONFUSION: 0.05,
+    LearnerState.IRRELEVANT: 0.05,
+}
+
+
 STUDENT_VARIANT_INSTRUCTIONS = {
     StudentVariant.RECEPTIVE: """
-Engage readily with useful questions and hints. Make reasonable progress when
-the Tutor gives enough evidence or asks a productive question. Do not jump
-ahead to conclusions that the conversation has not supported.
+RECEPTIVE
+Use an open, cooperative tone. When the sampled state is CORRECT or
+COMPREHENSION, the Student may accept or use Tutor evidence readily. When the
+sampled state is INCORRECT, QUESTION, CONFUSION, or IRRELEVANT, realize that
+state anyway. This tendency never overrides the sampled learner state.
 """.strip(),
     StudentVariant.PERSISTENT: """
-Trust your existing reasoning unless the Tutor gives you convincing evidence
-or reasoning to reconsider it. Explain and defend your current reasoning when
-appropriate. Update your view when the conversation genuinely gives you enough
-reason to do so.
+PERSISTENT
+Use a somewhat resistant or self-defending tone when compatible with the
+sampled state. For INCORRECT, QUESTION, or CONFUSION, existing profile beliefs
+can be useful content. For CORRECT or COMPREHENSION, still produce the required
+correct behaviour. This tendency never overrides the sampled learner state.
 """.strip(),
     StudentVariant.UNCERTAIN: """
-Be less confident in your reasoning. Ask for clarification when a question or
-concept is genuinely unclear and benefit from concrete tracing or narrower
-questions. Do not manufacture confusion after the idea has become clear.
+UNCERTAIN
+Use tentative wording such as "I think", "maybe", or "does that mean..." when
+compatible with the sampled state. Uncertainty changes confidence and phrasing,
+not whether the response is correct, incorrect, questioning, confused, or
+irrelevant. The sampled learner state is authoritative.
 """.strip(),
 }
 
@@ -87,7 +164,12 @@ class OfflineStudentAgent(Agent):
             f"{profile.model_dump_json(indent=2)}\n"
             "</student_profile>\n\n"
             "# Private behaviour tendency\n\n"
-            f"{STUDENT_VARIANT_INSTRUCTIONS[variant]}"
+            f"Variant: {variant.value.upper()}\n\n"
+            f"{STUDENT_VARIANT_INSTRUCTIONS[variant]}\n\n"
+            """The sampled learner state is authoritative for each turn.
+            StudentProfile and behaviour tendency are secondary content/style cues only.
+            Never change the semantic state of a reply to preserve profile continuity or
+            variant behaviour."""
         )
 
     def generate_turn(
@@ -95,21 +177,30 @@ class OfflineStudentAgent(Agent):
         *,
         dialogue_history: str,
         is_first_turn: bool,
+        turn_state: StudentTurnState,
         regeneration_feedback: str = "",
     ) -> StudentTurn:
         if is_first_turn:
             task = (
                 "Generate the first Student turn. Briefly describe the observed "
-                "difficulty with the buggy program and ask the Tutor for help."
+                "difficulty with the buggy program and ask the Tutor for help. "
+                "Begin from the supplied StudentProfile beliefs. Do not provide "
+                "corrected code or an exact final repair on this first turn, and do "
+                "not fully solve the debugging problem before tutoring has begun."
             )
         else:
             task = (
-                "Respond naturally to the Tutor's latest message given your current "
-                "beliefs, the conversation so far, and your behaviour tendency."
+                "Generate one Student turn that realizes the supplied target learner "
+                "state. Use the Tutor's latest message only to identify the current "
+                "topic or task; the sampled state controls the semantic behaviour."
             )
 
         prompt = (
             f"{task}\n\n"
+            "<target_learner_state>\n"
+            f"State: {turn_state.value.upper()}\n"
+            f"{STUDENT_TURN_STATE_INSTRUCTIONS[turn_state]}\n"
+            "</target_learner_state>\n\n"
             "<programming_case>\n"
             f"{self.case.visible_context()}\n"
             "</programming_case>\n\n"

@@ -34,12 +34,14 @@ def max_cases():
     return int(value)
 
 
+def student_state_seed():
+    return int(os.getenv("STUDENT_STATE_SEED", "0"))
+
+
 def main():
     load_dotenv()
 
-    client = OpenAI(
-        api_key=os.environ["OPENAI_API_KEY"],
-    )
+    client = OpenAI(api_key=os.environ["OPENAI_API_KEY"], timeout=180.0)
 
     plan_generator = PlanGenerator(
         planner=OfflinePlannerAgent(
@@ -69,6 +71,7 @@ def main():
             model=os.environ["VERIFIER_LLM_MODEL"],
         ),
         code_runner=DockerCodeRunner(),
+        student_state_seed=student_state_seed(),
     )
 
     generator = TrainingDataGenerator(

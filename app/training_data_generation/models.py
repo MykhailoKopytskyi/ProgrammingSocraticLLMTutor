@@ -8,6 +8,7 @@ from ..agents.offline.offline_dialogue_verifier_agent import DialogueVerificatio
 from ..agents.offline.offline_student_agent import (
     StudentProfile,
     StudentTurn,
+    StudentTurnState,
     StudentVariant,
 )
 from ..agents.offline.offline_student_turn_verifier_agent import StudentTurnCheck
@@ -41,6 +42,7 @@ class CodeExecutionRecord(StrictModel):
 
 class StudentTurnRecord(StrictModel):
     turn: StudentTurn
+    student_state: StudentTurnState | None = None
     code_execution: CodeExecutionRecord | None = None
     hard_check: StudentTurnCheck
 
@@ -148,6 +150,39 @@ class DialogueRecords(StrictModel):
                     f"[{index}] TUTOR\n{round_record.tutor.turn.reply.strip()}"
                 )
                 index += 1
+
+        return "\n\n".join(parts)
+
+    def to_verifier_text(self) -> str:
+        if not self.rounds:
+            return "[empty]"
+
+        parts: list[str] = []
+
+        for round_index, round_record in enumerate(self.rounds, start=1):
+            target_state = (
+                round_record.student.student_state.value
+                if round_record.student.student_state is not None
+                else "[not recorded]"
+            )
+            state_consistent = round_record.student.hard_check.state_consistent
+            tutor_assessed_state = (
+                round_record.tutor.turn.learner_state.value
+                if round_record.tutor is not None
+                else "[no Tutor assessment]"
+            )
+            parts.append(
+                f"ROUND {round_index}\n"
+                f"Target learner state: {target_state}\n"
+                f"Student state consistent with target: {state_consistent}\n"
+                f"Tutor-assessed learner state: {tutor_assessed_state}\n"
+                f"STUDENT: {self._student_text(round_record.student)}"
+            )
+
+            if round_record.tutor is not None:
+                parts.append(
+                    f"TUTOR: {round_record.tutor.turn.reply.strip()}"
+                )
 
         return "\n\n".join(parts)
 

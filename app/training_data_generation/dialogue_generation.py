@@ -1,14 +1,17 @@
 from __future__ import annotations
 
+from hashlib import sha256
 from typing import Any
 
 from ..agents.offline.offline_dialogue_verifier_agent import (
     OfflineDialogueVerifierAgent,
 )
 from ..agents.offline.offline_student_agent import (
+    STUDENT_TURN_STATE_WEIGHTS,
     OfflineStudentAgent,
     StudentProfile,
     StudentTurn,
+    StudentTurnState,
     StudentVariant,
 )
 from ..agents.offline.offline_student_turn_verifier_agent import (
@@ -30,7 +33,6 @@ from .models import (
     TutorTurnRecord,
     VerifiedPlan,
 )
-from ..agents.agent import AgentResponseError
 
 
 class DialogueGenerationError(RuntimeError):
@@ -48,9 +50,10 @@ class DialogueGenerator:
         tutor_turn_verifier: OfflineTutorTurnVerifierAgent,
         dialogue_verifier: OfflineDialogueVerifierAgent,
         code_runner: CodeRunner,
-        max_rounds: int = 12,
+        max_rounds: int = 14,
         max_student_attempts: int = 3,
         max_tutor_attempts: int = 3,
+        student_state_seed: int = 0,
     ):
         if max_rounds < 1:
             raise ValueError("max_rounds must be at least 1")
@@ -71,6 +74,7 @@ class DialogueGenerator:
         self._max_rounds = max_rounds
         self._max_student_attempts = max_student_attempts
         self._max_tutor_attempts = max_tutor_attempts
+        self._student_state_seed = student_state_seed
 
     def generate(
         self,
@@ -98,27 +102,37 @@ class DialogueGenerator:
             planner_output=verified_plan.output,
         )
 
-        progress: PlanProgress = PlanProgress(
-            completed_step_ids=[],
-            active_step_id=plan.steps[0].step_id,
-        )
+        progress: PlanProgress = PlanProgress()
 
         dialogue_records = DialogueRecords()
         latest_code_execution: TestRunResult | None = None
 
-        for _ in range(self._max_rounds):
-            student_turn, student_execution, student_check = (
-                self._generate_verified_student_turn(
-                    case=case,
-                    plan=plan,
-                    progress=progress,
-                    profile=profile,
-                    dialogue_records=dialogue_records,
-                    student=student,
-                )
+        for round_index in range(self._max_rounds):
+            student_state = self._student_state_for_turn(
+                dialogue_id=dialogue_id,
+                round_index=round_index,
+            )
+
+            (
+                student_turn,
+                student_execution,
+                student_check,
+                accepted_student_state,
+            ) = self._generate_verified_student_turn(
+                case=case,
+                plan=plan,
+                progress=progress,
+                profile=profile,
+                variant=variant,
+                student_state=student_state,
+                dialogue_id=dialogue_id,
+                round_index=round_index,
+                dialogue_records=dialogue_records,
+                student=student,
             )
             student_record = StudentTurnRecord(
                 turn=student_turn,
+                student_state=accepted_student_state,
                 code_execution=(
                     CodeExecutionRecord.from_result(student_execution)
                     if student_execution is not None
@@ -138,6 +152,7 @@ class DialogueGenerator:
                 dialogue_records=dialogue_records,
                 tutor=tutor,
                 latest_code_execution=latest_code_execution,
+                learner_state=LearnerState(accepted_student_state.value),
             )
             dialogue_records.add_tutor(
                 TutorTurnRecord(
@@ -146,8 +161,6 @@ class DialogueGenerator:
                 )
             )
             progress = self._update_progress(
-                plan=plan,
-                progress=progress,
                 tutor_turn=tutor_turn,
             )
 
@@ -176,6 +189,61 @@ class DialogueGenerator:
             "Conversation reached the maximum number of rounds without valid completion."
         )
 
+    def _student_state_for_turn(
+        self,
+        *,
+        dialogue_id: str,
+        round_index: int,
+        resample_index: int = 0,
+        excluded_states: tuple[StudentTurnState, ...] = (),
+    ) -> StudentTurnState:
+        if round_index == 0:
+            return StudentTurnState.START
+
+        if round_index >= 8:
+            states = (
+                StudentTurnState.CORRECT,
+                StudentTurnState.COMPREHENSION,
+            )
+        else:
+            states = (
+                StudentTurnState.CORRECT,
+                StudentTurnState.INCORRECT,
+                StudentTurnState.QUESTION,
+                StudentTurnState.COMPREHENSION,
+                StudentTurnState.CONFUSION,
+                StudentTurnState.IRRELEVANT,
+            )
+
+        available_states = tuple(
+            state for state in states if state not in excluded_states
+        )
+        if available_states:
+            states = available_states
+
+        if resample_index == 0:
+            key_text = f"{self._student_state_seed}:{dialogue_id}:{round_index}"
+        else:
+            key_text = (
+                f"{self._student_state_seed}:{dialogue_id}:{round_index}:"
+                f"resample:{resample_index}"
+            )
+        key = key_text.encode("utf-8")
+        digest = sha256(key).digest()
+        sample = int.from_bytes(digest[:8], "big") / float(2**64)
+
+        total_weight = 0.0
+        for state in states:
+            total_weight += STUDENT_TURN_STATE_WEIGHTS[state]
+
+        cumulative = 0.0
+        for state in states:
+            cumulative += STUDENT_TURN_STATE_WEIGHTS[state] / total_weight
+            if sample < cumulative:
+                return state
+
+        return states[-1]
+
     def _generate_verified_student_turn(
         self,
         *,
@@ -183,15 +251,27 @@ class DialogueGenerator:
         plan: PedagogicalPlan,
         progress: PlanProgress,
         profile: StudentProfile,
+        variant: StudentVariant,
+        student_state: StudentTurnState,
+        dialogue_id: str,
+        round_index: int,
         dialogue_records: DialogueRecords,
         student: OfflineStudentAgent,
-    ) -> tuple[StudentTurn, TestRunResult | None, StudentTurnCheck]:
+    ) -> tuple[
+        StudentTurn,
+        TestRunResult | None,
+        StudentTurnCheck,
+        StudentTurnState,
+    ]:
         feedback = ""
+        current_state = student_state
+        state_only_failures = 0
 
-        for _ in range(self._max_student_attempts):
+        for attempt in range(1, self._max_student_attempts + 1):
             candidate = student.generate_turn(
                 dialogue_history=dialogue_records.to_student_text(),
                 is_first_turn=dialogue_records.is_empty,
+                turn_state=current_state,
                 regeneration_feedback=feedback,
             )
 
@@ -207,27 +287,116 @@ class DialogueGenerator:
                 plan=plan,
                 progress=progress,
                 profile=profile,
+                variant=variant,
+                turn_state=current_state,
                 verified_history=dialogue_records.to_tutor_text(),
                 candidate=candidate,
                 code_execution=code_execution,
             )
 
             if check.accepted:
-                return candidate, code_execution, check
+                return candidate, code_execution, check, current_state
 
-            feedback = self._student_regeneration_feedback(check)
-        raise DialogueGenerationError("Could not generate an accepted Student turn.")
+            state_only_failure = (
+                not check.state_consistent
+                and not check.implausible_progression
+                and not check.oracle_leakage
+                and not check.malformed_or_incoherent
+            )
+
+            if state_only_failure:
+                state_only_failures += 1
+            else:
+                state_only_failures = 0
+
+            # If the same sampled state cannot be realized twice, use the final
+            # attempt with a newly sampled state. This prevents state-specific
+            # regeneration from repeatedly fighting an awkward target while
+            # keeping all retry loops bounded.
+            if (
+                state_only_failures >= 2
+                and attempt < self._max_student_attempts
+                and current_state != StudentTurnState.START
+            ):
+                previous_state = current_state
+                current_state = self._student_state_for_turn(
+                    dialogue_id=dialogue_id,
+                    round_index=round_index,
+                    resample_index=1,
+                    excluded_states=(previous_state,),
+                )
+                print(
+                    "  Student state resampled after repeated state mismatch: "
+                    f"{previous_state.value} -> {current_state.value}"
+                )
+                feedback = ""
+                state_only_failures = 0
+                continue
+
+            feedback = self._student_regeneration_feedback(
+                check,
+                variant=variant,
+                student_state=current_state,
+            )
+
+        raise DialogueGenerationError(
+            "Could not generate an accepted Student turn within the bounded "
+            f"{self._max_student_attempts} attempts."
+        )
 
     @staticmethod
-    def _student_regeneration_feedback(check: StudentTurnCheck) -> str:
+    def _student_regeneration_feedback(
+        check: StudentTurnCheck,
+        *,
+        variant: StudentVariant,
+        student_state: StudentTurnState,
+    ) -> str:
         """Return oracle-safe feedback that cannot leak hidden answers."""
         issues: list[str] = []
 
+        state_feedback = {
+            StudentTurnState.START: (
+                "The target learner state is START: give only an opening "
+                "help-seeking Student turn and do not solve the bug yet."
+            ),
+            StudentTurnState.CORRECT: (
+                "The target learner state is CORRECT: directly and correctly "
+                "answer only the Tutor's current request."
+            ),
+            StudentTurnState.INCORRECT: (
+                "The target learner state is INCORRECT: give a plausible, "
+                "materially wrong attempt at the current unresolved request. "
+                "Do not give the correct answer or a correct passing repair."
+            ),
+            StudentTurnState.QUESTION: (
+                "The target learner state is QUESTION: ask a relevant technical "
+                "clarification instead of answering the current request."
+            ),
+            StudentTurnState.COMPREHENSION: (
+                "The target learner state is COMPREHENSION: demonstrate genuine "
+                "understanding of the current concept in your own words. Stay focused "
+                "on the current request; incidental evidence relevant to later work "
+                "is allowed."
+            ),
+            StudentTurnState.CONFUSION: (
+                "The target learner state is CONFUSION: express a relevant lack "
+                "of understanding and ask for simpler guidance."
+            ),
+            StudentTurnState.IRRELEVANT: (
+                "The target learner state is IRRELEVANT: give a brief off-topic "
+                "reply and do not include solution progress."
+            ),
+        }
+
+        if not check.state_consistent:
+            issues.append(state_feedback[student_state])
+
         if check.implausible_progression:
             issues.append(
-                "Make the response follow naturally from the Student's existing "
-                "beliefs and the Tutor's actual guidance. Do not introduce knowledge "
-                "that the conversation has not established."
+                "Stay focused on the Tutor's current objective. Do not deliberately "
+                "abandon it for unrelated later work, submit code before implementation, "
+                "revision, application, or verification is requested, or make unrelated "
+                "semantic changes. Incidental later-objective evidence is allowed."
             )
 
         if check.oracle_leakage:
@@ -242,7 +411,10 @@ class DialogueGenerator:
                 "when attempting a complete program revision."
             )
 
-        return "\n".join(issues) or "Generate a more natural Student response."
+        return (
+            "\n".join(issues)
+            or "Generate a Student response that satisfies the checks."
+        )
 
     def _generate_verified_tutor_turn(
         self,
@@ -252,6 +424,7 @@ class DialogueGenerator:
         progress: PlanProgress,
         dialogue_records: DialogueRecords,
         tutor: OfflineTutorAgent,
+        learner_state: LearnerState,
         latest_code_execution: TestRunResult | None,
     ) -> tuple[TutorTurn, TutorHardCheck]:
         feedback = ""
@@ -262,9 +435,11 @@ class DialogueGenerator:
             candidate = tutor.generate_turn(
                 verified_history=dialogue_records.to_tutor_text(),
                 progress=progress,
+                learner_state=learner_state,
                 latest_code_execution=latest_code_execution,
                 regeneration_feedback=feedback,
             )
+            candidate.learner_state = learner_state
 
             deterministic_error = self._tutor_candidate_error(
                 candidate=candidate,
@@ -312,101 +487,59 @@ class DialogueGenerator:
         progress: PlanProgress,
         latest_code_execution: TestRunResult | None,
     ) -> str | None:
+        step_ids = [step.step_id for step in plan.steps]
 
-        if candidate.completed_through_step_id is not None:
-            if candidate.learner_state not in {
-                LearnerState.CORRECT,
-                LearnerState.COMPREHENSION,
-            }:
+        previous_completed_index = (
+            -1
+            if progress.completed_through_step_id is None
+            else step_ids.index(progress.completed_through_step_id)
+        )
+
+        if candidate.completed_through_step_id is None:
+            if previous_completed_index >= 0:
                 return (
-                    "Do not mark plan objectives complete unless the Student "
-                    "demonstrates sufficient understanding."
+                    "completed_through_step_id is cumulative and cannot become "
+                    "null after earlier plan objectives were completed."
                 )
+            return None
 
-            active_index = None
-            completed_through_index = None
+        if candidate.completed_through_step_id not in step_ids:
+            return "completed_through_step_id must be a valid plan step."
 
-            for index, step in enumerate(plan.steps):
-                if step.step_id == progress.active_step_id:
-                    active_index = index
+        completed_through_index = step_ids.index(candidate.completed_through_step_id)
 
-                if step.step_id == candidate.completed_through_step_id:
-                    completed_through_index = index
+        if completed_through_index < previous_completed_index:
+            return "completed_through_step_id is cumulative and cannot move backwards."
 
-            if completed_through_index is None:
-                return "completed_through_step_id must be a valid plan step."
+        made_new_progress = completed_through_index > previous_completed_index
 
-            if active_index is None:
-                return f"Unknown active step: {progress.active_step_id}."
+        if made_new_progress and candidate.learner_state not in {
+            LearnerState.CORRECT,
+            LearnerState.COMPREHENSION,
+        }:
+            return (
+                "Do not advance completed_through_step_id unless the latest "
+                "Student turn demonstrates sufficient correctness or "
+                "understanding."
+            )
 
-            if completed_through_index < active_index:
-                return (
-                    "completed_through_step_id cannot precede the current "
-                    "active plan step."
-                )
+        if completed_through_index == len(plan.steps) - 1 and (
+            latest_code_execution is None or not latest_code_execution.passed
+        ):
+            return (
+                "Do not complete through the final plan step until the Student "
+                "has submitted code that passes the tests."
+            )
 
-            if (
-                completed_through_index == len(plan.steps) - 1
-                and (
-                    latest_code_execution is None
-                    or not latest_code_execution.passed
-                )
-            ):
-                return (
-                    "Do not complete through the final plan step until the "
-                    "Student has submitted code that passes the tests."
-                )
-        return None 
+        return None
 
-    
     @staticmethod
     def _update_progress(
         *,
-        plan: PedagogicalPlan,
-        progress: PlanProgress,
         tutor_turn: TutorTurn,
     ) -> PlanProgress:
-        if tutor_turn.completed_through_step_id is None:
-            return progress
-
-        active_index = None
-        completed_through_index = None
-
-        for index, step in enumerate(plan.steps):
-            if step.step_id == progress.active_step_id:
-                active_index = index
-
-            if step.step_id == tutor_turn.completed_through_step_id:
-                completed_through_index = index
-
-        if active_index is None:
-            raise ValueError(f"Unknown active step: {progress.active_step_id}")
-
-        if completed_through_index is None:
-            raise ValueError(
-                "Unknown completed-through step: "
-                f"{tutor_turn.completed_through_step_id}"
-            )
-
-        if completed_through_index < active_index:
-            raise ValueError(
-                "completed_through_step_id cannot precede the active step."
-            )
-
-        completed = list(progress.completed_step_ids)
-
-        for index in range(active_index, completed_through_index + 1):
-            completed.append(plan.steps[index].step_id)
-
-        if completed_through_index == len(plan.steps) - 1:
-            return PlanProgress(
-                completed_step_ids=completed,
-                active_step_id=plan.steps[-1].step_id,
-            )
-
         return PlanProgress(
-            completed_step_ids=completed,
-            active_step_id=plan.steps[completed_through_index + 1].step_id,
+            completed_through_step_id=tutor_turn.completed_through_step_id
         )
 
     @staticmethod
@@ -418,7 +551,7 @@ class DialogueGenerator:
     ) -> bool:
         return (
             # Conditions that are satisfied iff the tutoring dialogue has finished successfully
-            len(progress.completed_step_ids) == len(plan.steps)
+            progress.completed_through_step_id == plan.steps[-1].step_id
             and latest_code_execution is not None
             and latest_code_execution.passed
         )
@@ -436,8 +569,8 @@ class DialogueGenerator:
         latest_code_execution: TestRunResult,
     ) -> GeneratedDialogue:
         completion_evidence = (
-            "Completed plan steps:\n"
-            f"{progress.completed_step_ids}\n\n"
+            "Completed through plan step:\n"
+            f"{progress.completed_through_step_id}\n\n"
             "Latest Student code execution:\n"
             f"passed={latest_code_execution.passed}\n"
             f"{latest_code_execution.output}"
@@ -447,7 +580,8 @@ class DialogueGenerator:
             case=case,
             planner_output=verified_plan.output,
             student_profile=profile,
-            dialogue_transcript=dialogue_records.to_student_text(),
+            student_variant=variant,
+            dialogue_transcript=dialogue_records.to_verifier_text(),
             completion_evidence=completion_evidence,
         )
 

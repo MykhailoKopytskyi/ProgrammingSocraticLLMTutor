@@ -2,6 +2,7 @@ import json
 from abc import ABC
 from datetime import datetime
 from pathlib import Path
+from threading import Lock
 from time import perf_counter
 from typing import Any, TypeVar
 
@@ -15,34 +16,46 @@ class AgentResponseError(RuntimeError):
 
 
 LOG_FILE = Path("agent_full_dump.log")
+LOG_FILE_LOCK = Lock()
 
 
 def dump_agent(label: str, data: Any) -> None:
-    with LOG_FILE.open("a", encoding="utf-8") as f:
-        f.write("\n" + "=" * 100 + "\n")
-        f.write(f"{datetime.now().isoformat()} | {label}\n")
-        f.write("=" * 100 + "\n")
+    if hasattr(data, "model_dump"):
+        try:
+            data = data.model_dump(mode="json")
+        except Exception:
+            data = str(data)
 
-        if hasattr(data, "model_dump"):
-            try:
-                data = data.model_dump(mode="json")
-            except Exception:
-                data = str(data)
+    if isinstance(data, (dict, list)):
+        body = json.dumps(
+            data,
+            indent=2,
+            ensure_ascii=False,
+            default=str,
+        )
+    else:
+        body = str(data)
 
-        if isinstance(data, (dict, list)):
-            f.write(
-                json.dumps(
-                    data,
-                    indent=2,
-                    ensure_ascii=False,
-                    default=str,
-                )
-            )
-        else:
-            f.write(str(data))
+    entry = (
+        "\n"
+        + "=" * 100
+        + "\n"
+        + f"{datetime.now().isoformat()} | {label}\n"
+        + "=" * 100
+        + "\n"
+        + body
+        + "\n"
+    )
 
-        f.write("\n")
-        f.flush()
+    with (
+        LOG_FILE_LOCK,
+        LOG_FILE.open(
+            "a",
+            encoding="utf-8",
+        ) as file,
+    ):
+        file.write(entry)
+        file.flush()
 
 
 class Agent(ABC):
@@ -53,12 +66,14 @@ class Agent(ABC):
         instructions: str,
         reasoning_effort: str | None = None,
         max_output_tokens: int | None = None,
+        verbosity: str | None = None,
     ):
         self.llm = llm
         self.model = model
         self.instructions = instructions
         self.reasoning_effort = reasoning_effort
         self.max_output_tokens = max_output_tokens
+        self.verbosity = verbosity
 
     def _get_structured_output(
         self,
@@ -73,6 +88,9 @@ class Agent(ABC):
             "input": prompt,
             "text_format": output_type,
         }
+
+        if self.verbosity is not None:
+            request["text"] = {"verbosity": self.verbosity}
 
         if self.max_output_tokens is not None:
             request["max_output_tokens"] = self.max_output_tokens

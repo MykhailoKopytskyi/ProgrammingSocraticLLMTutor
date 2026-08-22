@@ -21,6 +21,7 @@ class OfflinePlanVerifierAgent(Agent):
             llm=llm,
             model=model,
             instructions=instructions,
+            reasoning_effort="medium",
         )
 
     def verify(

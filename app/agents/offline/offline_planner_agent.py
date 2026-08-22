@@ -29,6 +29,7 @@ class OfflinePlannerAgent(Agent):
             llm=llm,
             model=model,
             instructions=instructions,
+            reasoning_effort="medium",
         )
 
     def generate_output(

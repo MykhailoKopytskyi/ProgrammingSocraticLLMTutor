@@ -35,6 +35,8 @@ class OfflineDialogueVerifierAgent(Agent):
             llm=llm,
             model=model,
             instructions=instructions,
+            reasoning_effort="medium",
+            max_output_tokens=4000,
         )
 
     def verify(

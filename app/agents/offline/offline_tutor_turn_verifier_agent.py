@@ -27,6 +27,8 @@ class OfflineTutorTurnVerifierAgent(Agent):
             llm=llm,
             model=model,
             instructions=instructions,
+            reasoning_effort="medium",
+            max_output_tokens=3000,
         )
 
     def verify(
@@ -38,6 +40,7 @@ class OfflineTutorTurnVerifierAgent(Agent):
         candidate: TutorTurn,
         verified_history: str,
         latest_code_execution: TestRunResult | None = None,
+        previous_regeneration_feedback: str = "",
     ) -> TutorHardCheck:
         execution_evidence = (
             "No student-submitted code has been executed yet."
@@ -64,6 +67,8 @@ class OfflineTutorTurnVerifierAgent(Agent):
             f"{verified_history}\n\n"
             "CANDIDATE TUTOR TURN:\n"
             f"{candidate.model_dump_json(indent=2)}"
+            "PREVIOUS REGENERATION FEEDBACK GIVEN TO THIS TUTOR:\n"
+            f"{previous_regeneration_feedback or '[none]'}\n\n"
         )
 
         return self._get_structured_output(
@@ -82,7 +87,6 @@ class TutorHardCheck(StrictModel):
     malformed_or_incoherent: bool
     serious_repetition: bool
     missed_step_completion: bool
-    
 
     reasons: list[str] = Field(default_factory=list)
     regeneration_feedback: str | None = None
@@ -99,6 +103,6 @@ class TutorHardCheck(StrictModel):
                 self.malformed_or_incoherent,
                 self.serious_repetition,
                 self.learner_state_mismatch,
-                self.missed_step_completion
+                self.missed_step_completion,
             )
         )

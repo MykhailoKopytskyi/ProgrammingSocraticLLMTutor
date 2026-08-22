@@ -7,7 +7,7 @@ from ..agents.offline.offline_dialogue_verifier_agent import (
     OfflineDialogueVerifierAgent,
 )
 from ..agents.offline.offline_student_agent import (
-    STUDENT_TURN_STATE_WEIGHTS,
+    STUDENT_TURN_STATE_WEIGHTS_BY_VARIANT,
     OfflineStudentAgent,
     StudentProfile,
     StudentTurn,
@@ -93,6 +93,7 @@ class DialogueGenerator:
             case=case,
             profile=profile,
             variant=variant,
+            planner_output=verified_plan.output,
         )
 
         tutor: OfflineTutorAgent = OfflineTutorAgent(
@@ -109,8 +110,7 @@ class DialogueGenerator:
 
         for round_index in range(self._max_rounds):
             student_state = self._student_state_for_turn(
-                dialogue_id=dialogue_id,
-                round_index=round_index,
+                dialogue_id=dialogue_id, round_index=round_index, variant=variant
             )
 
             (
@@ -194,6 +194,7 @@ class DialogueGenerator:
         *,
         dialogue_id: str,
         round_index: int,
+        variant: StudentVariant,
         resample_index: int = 0,
         excluded_states: tuple[StudentTurnState, ...] = (),
     ) -> StudentTurnState:
@@ -228,17 +229,20 @@ class DialogueGenerator:
                 f"{self._student_state_seed}:{dialogue_id}:{round_index}:"
                 f"resample:{resample_index}"
             )
+
         key = key_text.encode("utf-8")
         digest = sha256(key).digest()
         sample = int.from_bytes(digest[:8], "big") / float(2**64)
 
-        total_weight = 0.0
-        for state in states:
-            total_weight += STUDENT_TURN_STATE_WEIGHTS[state]
+        # Select the probability distribution for this Student variant.
+        weights = STUDENT_TURN_STATE_WEIGHTS_BY_VARIANT[variant]
+
+        # Re-normalise over only the states that are currently allowed. This matters after round 8 and when a failed state is excluded during resampling
+        total_weight = sum(weights[state] for state in states)
 
         cumulative = 0.0
         for state in states:
-            cumulative += STUDENT_TURN_STATE_WEIGHTS[state] / total_weight
+            cumulative += weights[state] / total_weight
             if sample < cumulative:
                 return state
 
@@ -265,7 +269,7 @@ class DialogueGenerator:
     ]:
         feedback = ""
         current_state = student_state
-        state_only_failures = 0
+        # state_only_failures = 0
 
         for attempt in range(1, self._max_student_attempts + 1):
             candidate = student.generate_turn(
@@ -292,46 +296,11 @@ class DialogueGenerator:
                 verified_history=dialogue_records.to_tutor_text(),
                 candidate=candidate,
                 code_execution=code_execution,
+                previous_regeneration_feedback=feedback,
             )
 
             if check.accepted:
                 return candidate, code_execution, check, current_state
-
-            state_only_failure = (
-                not check.state_consistent
-                and not check.implausible_progression
-                and not check.oracle_leakage
-                and not check.malformed_or_incoherent
-            )
-
-            if state_only_failure:
-                state_only_failures += 1
-            else:
-                state_only_failures = 0
-
-            # If the same sampled state cannot be realized twice, use the final
-            # attempt with a newly sampled state. This prevents state-specific
-            # regeneration from repeatedly fighting an awkward target while
-            # keeping all retry loops bounded.
-            if (
-                state_only_failures >= 2
-                and attempt < self._max_student_attempts
-                and current_state != StudentTurnState.START
-            ):
-                previous_state = current_state
-                current_state = self._student_state_for_turn(
-                    dialogue_id=dialogue_id,
-                    round_index=round_index,
-                    resample_index=1,
-                    excluded_states=(previous_state,),
-                )
-                print(
-                    "  Student state resampled after repeated state mismatch: "
-                    f"{previous_state.value} -> {current_state.value}"
-                )
-                feedback = ""
-                state_only_failures = 0
-                continue
 
             feedback = self._student_regeneration_feedback(
                 check,
@@ -351,8 +320,13 @@ class DialogueGenerator:
         variant: StudentVariant,
         student_state: StudentTurnState,
     ) -> str:
-        """Return oracle-safe feedback that cannot leak hidden answers."""
+        """Return verifier feedback for another attempt at the same learner state."""
         issues: list[str] = []
+        if check.reasons:
+            issues.append(
+                "Verifier feedback from the previous rejected Student candidate:\n"
+                + "\n".join(check.reasons)
+            )
 
         state_feedback = {
             StudentTurnState.START: (
@@ -401,8 +375,10 @@ class DialogueGenerator:
 
         if check.oracle_leakage:
             issues.append(
-                "Respond only from information available to the Student. Do not "
-                "mention or rely on private, oracle, verifier, or hidden-plan information."
+                "Do not expose or refer to the private oracle, expected answers, "
+                "pedagogical plan, verifier feedback, or other generation metadata "
+                "in the visible Student response. Use private reference information "
+                "only as internal grounding."
             )
 
         if check.malformed_or_incoherent:
@@ -461,6 +437,7 @@ class DialogueGenerator:
                 candidate=candidate,
                 verified_history=dialogue_records.to_tutor_text(),
                 latest_code_execution=latest_code_execution,
+                previous_regeneration_feedback=feedback,
             )
 
             if hard_check.accepted:
@@ -510,18 +487,6 @@ class DialogueGenerator:
 
         if completed_through_index < previous_completed_index:
             return "completed_through_step_id is cumulative and cannot move backwards."
-
-        made_new_progress = completed_through_index > previous_completed_index
-
-        if made_new_progress and candidate.learner_state not in {
-            LearnerState.CORRECT,
-            LearnerState.COMPREHENSION,
-        }:
-            return (
-                "Do not advance completed_through_step_id unless the latest "
-                "Student turn demonstrates sufficient correctness or "
-                "understanding."
-            )
 
         if completed_through_index == len(plan.steps) - 1 and (
             latest_code_execution is None or not latest_code_execution.passed

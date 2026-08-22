@@ -54,7 +54,7 @@ class OfflineTutorAgent(Agent):
             llm=llm,
             model=model,
             instructions=personalized_instructions,
-            reasoning_effort="low",
+            reasoning_effort="medium",
         )
 
         self.case = case

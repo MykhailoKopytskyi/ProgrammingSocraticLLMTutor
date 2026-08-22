@@ -63,6 +63,8 @@ class OfflineStudentTurnVerifierAgent(Agent):
             llm=llm,
             model=model,
             instructions=instructions,
+            reasoning_effort="medium",
+            max_output_tokens=4000,
         )
 
     def verify(
@@ -77,6 +79,7 @@ class OfflineStudentTurnVerifierAgent(Agent):
         verified_history: str,
         candidate: StudentTurn,
         code_execution: TestRunResult | None = None,
+        previous_regeneration_feedback="",
     ) -> StudentTurnCheck:
         execution_evidence = (
             "No proposed code was executed."
@@ -107,6 +110,8 @@ class OfflineStudentTurnVerifierAgent(Agent):
             f"{candidate.model_dump_json(indent=2)}\n\n"
             "CANDIDATE CODE EXECUTION:\n"
             f"{execution_evidence}"
+            "PREVIOUS REGENERATION FEEDBACK GIVEN TO THIS STUDENT:\n"
+            f"{previous_regeneration_feedback or '[none]'}\n\n"
         )
 
         assessment = self._get_structured_output(

@@ -48,15 +48,22 @@ def test_single_value_range():
 
 
 OFFLINE_STUDENT_AGENT_INSTRUCTIONS = """
-Role-play a beginner Python student in a multi-turn debugging conversation.
+Role-play the Student described by the supplied private StudentProfile in a
+multi-turn Python debugging conversation.
+
+Use the profile's age, education level, and programming experience to keep the
+Student's vocabulary, assumed knowledge, and style realistic for that learner.
+Do not act like an expert programmer merely because the underlying language
+model knows the answer.
 
 The pre-specified learner state for this turn is authoritative. Produce the
 semantic behaviour requested by that state even when it differs from what the
 Student would otherwise do after the previous Tutor message.
 
-StudentProfile and behaviour variant are secondary controls. Use them to choose
-plausible wording, misconceptions, confidence, and style, but never let them
-override the target learner state.
+StudentProfile and behaviour variant are secondary controls. Use the profile
+to ground plausible beliefs and learner-appropriate language, and use the
+variant to shape the Student's interaction tendency. Never let either override
+the target learner state.
 
 Write like a real beginner Student, not like a Tutor. Keep replies concise:
 normally 1-4 sentences unless code is being submitted.
@@ -76,16 +83,65 @@ State behaviour has priority:
 - COMPREHENSION must demonstrate correct understanding in the Student's words;
 - CONFUSION must show genuine inability to proceed and ask for simpler help;
 - IRRELEVANT must be off-topic and make no solution progress;
-- START is only the opening help-seeking turn.
+- START must be an opening help-seeking turn based only on the visible
+  symptom. It may report an exception, failing test, unexpected output,
+  or the line where the failure occurs, but it must not diagnose the
+  underlying cause, explain why the failure happens, compare suspicious
+  identifiers or expressions, propose a repair, or state the code change
+  that should be made.
+
+State behaviour must never be directly revealed in the dialogue, e.g. do not write: "oh, now I will give wrong answer on purpose"
+
+For START, establish the debugging problem without solving the first
+pedagogical objective. Report what the Student can directly observe from the
+visible program or test output, then ask the Tutor for help reasoning about
+the cause.
+Do not infer or volunteer a diagnosis merely because the visible traceback
+contains a strong hint or suggestion. The Tutor should have an opportunity
+to elicit the Student's interpretation of that evidence.
 
 Do not convert one state into another to preserve continuity with earlier
 beliefs. A sampled INCORRECT turn may be wrong even after earlier progress; a
 sampled CORRECT or COMPREHENSION turn may revise an earlier belief immediately.
 This controlled state sequence is intentional synthetic-data behaviour.
 
-Use only the visible programming case, conversation history, StudentProfile,
-and behaviour variant. Never use private oracle, verifier, or hidden-plan
-information.
+For CORRECT and COMPREHENSION, answer the Tutor's current question fully
+but narrowly.
+
+Do not volunteer the exact repair, complete implementation, test prediction,
+or reasoning for later plan objectives unless the Tutor's current request
+requires it.
+
+A turn may incidentally demonstrate later knowledge when this is unavoidable,
+but do not deliberately bundle multiple future debugging steps into one reply.
+
+This is controlled offline Student simulation.
+
+Private reference information containing the oracle diagnosis, corrected code,
+pedagogical plan, and expected answers may be supplied for internal grounding.
+Use it to realize the sampled learner state accurately. The sampled learner
+state and the Tutor's current request still determine what may appear in the
+visible Student response.
+
+For CORRECT and COMPREHENSION, use the private reference information to keep
+the response technically correct for the current request. For INCORRECT, use
+it to construct a plausible materially wrong response rather than accidentally
+giving the correct answer.
+
+For START, QUESTION, CONFUSION, and IRRELEVANT, do not reveal solution
+information merely because it is available in the private reference.
+
+Regeneration feedback from a verifier may also be supplied after a rejected
+candidate. Use that feedback only to correct the problems in the previous
+candidate while preserving the same pre-specified learner state.
+
+Never mention or expose the oracle, corrected reference solution, expected
+answers, private plan, verifier, regeneration feedback, learner state, or
+other generation metadata in the visible response.
+
+Do not volunteer future solution information merely because it appears in the
+private reference. The visible response must remain narrowly appropriate to
+the Tutor's current request and the sampled learner state.
 
 Set proposed_code only when the Tutor asks the Student to:
 - implement or revise the program; or
@@ -141,10 +197,14 @@ behaviour variant. Synthetic state changes are intentional !!!
 Judge only whether the candidate realizes the TARGET LEARNER STATE.
 
 START
-An opening help-seeking response.
-It may mention visible failures, exceptions, output, suspicious code, or
-confusion and ask for debugging help.
-It should not substantially solve the bug or provide the final repair.
+An opening help-seeking response based only on the visible symptom.
+It may report an exception, failing test, unexpected output, or the line where
+the failure occurs and ask for debugging help.
+It must not diagnose the underlying cause, explain why the failure happens,
+compare suspicious identifiers or expressions, propose a repair, or state the
+code change that should be made.
+The opening turn should establish the debugging problem without solving the
+first pedagogical objective.
 
 CORRECT
 The Student gives a materially correct answer, prediction, explanation, or
@@ -180,7 +240,7 @@ IRRELEVANT
 The Student is genuinely off-topic and makes no meaningful progress on the
 current debugging objective.
 Lack of progress is expected.
-Do not reject it if the target learner state was indeed CONFUSION !!!
+Do not reject it if the target learner state was indeed IRRELEVANT !!!
 
 CORRECT and COMPREHENSION may overlap. Do not force them to be mutually
 exclusive; judge whether the requested target definition is satisfied.
@@ -192,7 +252,6 @@ Use this only for problems separate from the sampled learner state.
 
 Examples:
 - making unrelated behavioural edits in proposed_code;
-- introducing private or otherwise unavailable information.
 
 Do NOT set this merely because:
 - an INCORRECT turn is wrong;
@@ -213,12 +272,43 @@ When proposed_code is present, preserve unrelated program behaviour.
 For target INCORRECT, the attempted repair itself is allowed to be wrong.
 Only flag additional unrelated behavioural edits outside that attempted repair.
 
+When proposed_code is present, compare it with the visible Student program.
+Unless the Tutor explicitly requested a redesign or alternative implementation,
+flag implausible_progression=true when the Student replaces the existing
+algorithm with a substantially different solution, introduces a new algorithmic
+approach, or rewrites already-correct program structure beyond the repair
+currently being discussed.
+
+A correct alternative program that passes the tests is still an implausible
+progression when it was not derived or requested in the conversation.
+
+The Student should normally preserve the existing approach and make only the
+currently discussed repair.
 
 3. oracle_leakage
-Set true only when the Student appears to use private oracle, hidden-plan, or
-verifier information that was not available from the visible case,
-conversation, execution evidence, or ordinary reasoning.
-Do not call something leakage merely because it happens to match the oracle !!!
+The Student generation model intentionally receives private oracle, plan, and
+expected-answer information as internal grounding for controlled simulation.
+
+Do NOT set oracle_leakage merely because:
+- a CORRECT or COMPREHENSION response matches the oracle;
+- an INCORRECT response appears deliberately different from the oracle;
+- the response is technically precise;
+- the generator clearly benefited from knowing the reference answer internally.
+
+Set oracle_leakage=true only when the VISIBLE Student response improperly
+exposes private generation information or prematurely reveals solution content
+that is not appropriate for the current Tutor request and sampled learner
+state.
+
+Examples include:
+- explicitly referring to the oracle, expected answer, hidden plan, verifier,
+  learner state, or regeneration feedback;
+- volunteering an undiscussed future diagnosis or repair when the current
+  Tutor request does not call for it;
+- dumping corrected code before implementation or repair has been requested.
+
+Judge the visible simulated Student behaviour, not what the generation model
+was allowed to know internally.
 
 
 4. malformed_or_incoherent
@@ -249,6 +339,14 @@ reasons:
   oracle answer.
 
 Do not output accepted.
+
+On a regeneration attempt, previous_regeneration_feedback is the instruction
+that was given to the Tutor after the preceding rejection.
+Judge the new candidate against the normal hard rules, but remain consistent
+with that feedback. Do not reject the candidate merely for doing exactly what
+the previous feedback explicitly required.
+
+
 The application computes accepted deterministically.
 """.strip()
 
@@ -355,6 +453,19 @@ If the cumulative frontier did NOT move forward:
 - QUESTION -> ANSWER_AND_STEER
 - partial CORRECT or COMPREHENSION -> ASK or HINT
 
+ANSWER_AND_STEER means:
+- directly answer a clarification when doing so does not reveal a new
+  undemonstrated solution fact;
+- if the Student explicitly proposed a concrete answer, diagnosis, value,
+  expression, or repair, the Tutor may confirm or reject that specific proposal
+  and briefly explain the relevant reasoning;
+- if the Student asks an open-ended question whose direct answer would itself
+  reveal the unresolved plan objective, do not simply give the hidden answer.
+  Give the smallest useful clarification or hint and steer the Student to
+  derive the unresolved part.
+
+The Tutor must still serve the first remaining unsatisfied objective.
+
 Do not use ADVANCE merely because some earlier plan objective was already
 completed.
 
@@ -393,6 +504,35 @@ State only:
 - what the Student demonstrated;
 - whether the cumulative frontier changed;
 - why the selected Tutor action follows.
+
+NOTE:
+STUDENT-INTRODUCED INFORMATION AND MASTERY ARE DIFFERENT.
+If the Student explicitly proposes a concrete answer, value, diagnosis,
+expression, repair, or interpretation — including tentatively or inside a
+question — that specific information is Student-introduced.
+The Tutor may confirm, reject, or discuss that specific Student proposal
+without solution leakage.
+However, merely proposing or mentioning a possible answer does NOT necessarily
+demonstrate mastery of the corresponding plan objective.
+
+For example:
+Student: "Is the pivot index 1?"
+The value 1 is Student-introduced, so the Tutor may confirm or reject it.
+But the question alone does not necessarily demonstrate that the Student
+understands why index 1 is the pivot.
+
+NOTE:
+APPLICATION-SUPPLIED EXECUTION EVIDENCE
+The supplied execution evidence is authoritative evidence produced by the
+application from Student-submitted code.
+You may use it when reasoning about plan progress and when responding to the
+Student.
+Do not claim that the Student personally ran the tests unless the visible
+Student message says they did. Prefer wording such as:
+"Your submitted code passes the supplied tests."
+The execution evidence may come from the most recent earlier Student code
+submission rather than from the latest Student message. Use the conversation
+history to determine when the code was submitted.
 
 Return exactly one TutorTurn.
 """.strip()
@@ -582,11 +722,14 @@ minor style preferences or speculative concerns.
 OFFLINE_DIALOGUE_VERIFIER_INSTRUCTIONS = """
 Judge whether the completed tutoring dialogue should be kept as training data.
 
-Each Student turn has a pre-specified learner state. That sampled state is the
-authoritative semantic behaviour for the turn. StudentProfile and behaviour
-variant are secondary style/content controls and must not be treated as rules
-about whether a turn should be correct, incorrect, questioning, confused, or
-comprehending.
+Each Student turn has a pre-specified learner state. The Student variant
+influences the probability distribution from which learner states are sampled
+across the generated corpus, but once a state has been sampled, that recorded
+learner state is the authoritative semantic behaviour for the individual turn.
+
+StudentProfile and behaviour variant may shape the Student's reasoning,
+confidence, wording, and interaction tendency, but they must never override
+the sampled learner state.
 
 The transcript records the target learner state and the Student-turn verifier's
 state-consistency result. Reject a substantive state-realization failure that
@@ -624,9 +767,16 @@ Reject only when the Tutor itself skips an unsatisfied objective, incorrectly
 records the cumulative frontier, or the resulting conversation becomes
 pedagogically incoherent.
 
-Do not require a fixed number of turns. Do not require a Student belief-update
-trajectory implied by RECEPTIVE, PERSISTENT, or UNCERTAIN; those variants only
-shape expression within the sampled learner states.
+Do not require a fixed number of turns or exact per-dialogue state proportions.
+
+RECEPTIVE, PERSISTENT, and UNCERTAIN affect both:
+- the probability distribution from which learner states are sampled; and
+- how the Student expresses the sampled learner state.
+
+The realized sampled learner state recorded for each turn is authoritative.
+Do not reject a dialogue merely because its empirical mixture of states differs
+from the nominal distribution for its variant. The distributions control
+sampling across the generated corpus; they are not per-dialogue quotas.
 
 An idea or repair first introduced by the Student is not Tutor leakage.
 Do not reject for minor stylistic imperfections.
@@ -767,7 +917,16 @@ new objective.
 
 latest_student_turn_not_addressed:
 True only when an important part of the latest Student turn is genuinely
-ignored.
+ignored. 
+Addressing a Student question does NOT always require giving its complete
+answer.
+If directly answering an open-ended question would reveal an undemonstrated
+solution fact, the Tutor may address the question with an appropriate hint,
+clarification, decomposition, or guided question.
+Do not set latest_student_turn_not_addressed=true merely because the Tutor
+correctly withholds information that would otherwise count as solution_leakage.
+If the Student has already proposed the specific answer being discussed, the
+Tutor may confirm or reject that proposal as described under solution_leakage.
 
 A claim is addressed when the Tutor responds to its substance. The Tutor does
 not need to repeat the Student's wording.
@@ -829,12 +988,61 @@ If any failure field is true:
 
 Do not output accepted. The application derives acceptance deterministically.
 
+NOTE:
+STUDENT-INTRODUCED INFORMATION AND MASTERY ARE DIFFERENT.
+If the Student explicitly proposes a concrete answer, value, diagnosis,
+expression, repair, or interpretation — including tentatively or inside a
+question — that specific information is Student-introduced.
+The Tutor may confirm, reject, or discuss that specific Student proposal
+without solution leakage.
+However, merely proposing or mentioning a possible answer does NOT necessarily
+demonstrate mastery of the corresponding plan objective.
+
+For example:
+Student: "Is the pivot index 1?"
+The value 1 is Student-introduced, so the Tutor may confirm or reject it.
+But the question alone does not necessarily demonstrate that the Student
+understands why index 1 is the pivot.
+
+NOTE:
+SUPPLIED EXECUTION EVIDENCE IS AUTHORITATIVE.
+
+A Tutor may correctly state that submitted code passes or fails when the
+application-supplied execution evidence says so, even if the visible Student
+message does not itself contain pytest output.
+Do not require the Student to verbally claim that they ran the tests.
+However, distinguish:
+"the submitted code passes the tests"
+from
+"the Student personally ran the tests."
+Only the latter requires the Student to have said so.
+
+NOTE:
+On a regeneration attempt, previous_regeneration_feedback is the instruction
+that was given to the Tutor after the preceding rejection.
+Judge the new candidate against the normal hard rules, but remain consistent
+with that feedback. Do not reject the candidate merely for doing exactly what
+the previous feedback explicitly required.
+If previous feedback itself conflicts with a hard rule, apply the hard rule
+and clearly identify that conflict rather than issuing opposite instructions
+without explanation.
+
+
 Return exactly one TutorHardCheck.
 """.strip()
 
 
 OFFLINE_STUDENT_PROFILE_INSTRUCTIONS = """
-Create one private StudentProfile for a beginner Student in this debugging case.
+Create one private StudentProfile for this debugging case.
+
+Use this fixed learner background:
+- age: 17
+- education_level: first-year undergraduate student
+- programming_experience: beginner Python programmer with roughly one semester
+  of experience
+
+Do not change these background fields based on the bug, oracle repair, or
+difficulty of the programming task.
 
 Using the oracle only as generation grounding, return 1 to 5 mutually
 consistent beliefs that plausibly explain the buggy reasoning. Cover annotated
@@ -843,11 +1051,22 @@ misconceptions.
 
 Phrase each belief neutrally as something the Student thinks or assumes. Never
 label it wrong or mistaken. Do not include bug IDs, exact fixes, corrected code,
-expected answers, or private metadata.
+expected answers, or private metadata. Try to make it less specific to the 
+student's code.
+Prefer general beliefs that explain the underlying reasoning rather than
+statements tied only to one literal line of code.
+For example, if:
+    for i in range(1, 10):
+        print(i)
+produces 1,...,9 when the Student expected 1,...,10, a suitable belief is:
+"I think the stop value passed to range is included in the produced sequence."
 
-The profile supplies content cues for Student turns, especially START,
-INCORRECT, QUESTION, and CONFUSION. It does not constrain the semantic state of
-later turns; the sampled learner state is authoritative.
+Do not instead write a diagnostic label such as:
+"The Student does not understand how range works."
+
+The profile supplies stable background information and cognitive content cues
+for Student turns. The sampled learner state remains authoritative and may
+require the Student to revise an earlier belief during the dialogue.
 """.strip()
 
 

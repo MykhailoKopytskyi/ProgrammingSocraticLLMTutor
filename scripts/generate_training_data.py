@@ -50,7 +50,7 @@ def main():
         ),
         verifier=OfflinePlanVerifierAgent(
             llm=client,
-            model=os.environ["VERIFIER_LLM_MODEL"],
+            model=os.environ["PLAN_VERIFIER_LLM_MODEL"],
         ),
     )
 
@@ -60,15 +60,15 @@ def main():
         tutor_model=os.environ["TUTOR_LLM_MODEL"],
         student_turn_verifier=OfflineStudentTurnVerifierAgent(
             llm=client,
-            model=os.environ["VERIFIER_LLM_MODEL"],
+            model=os.environ["TURN_VERIFIER_LLM_MODEL"],
         ),
         tutor_turn_verifier=OfflineTutorTurnVerifierAgent(
             llm=client,
-            model=os.environ["VERIFIER_LLM_MODEL"],
+            model=os.environ["TURN_VERIFIER_LLM_MODEL"],
         ),
         dialogue_verifier=OfflineDialogueVerifierAgent(
             llm=client,
-            model=os.environ["VERIFIER_LLM_MODEL"],
+            model=os.environ["DIALOGUE_VERIFIER_LLM_MODEL"],
         ),
         code_runner=DockerCodeRunner(),
         student_state_seed=student_state_seed(),
@@ -81,10 +81,11 @@ def main():
         plan_generator=plan_generator,
         profile_agent=OfflineStudentProfileAgent(
             llm=client,
-            model=os.environ["DATA_LLM_MODEL"],
+            model=os.environ["STUDENT_PROFILE_MODEL"],
         ),
         dialogue_generator=dialogue_generator,
         dialogue_store=DialogueStore(Path("data/generated/dialogues.jsonl")),
+        failed_path=Path("data/generated/failed_dialogues.txt"),
         limit=max_cases(),
     )
 

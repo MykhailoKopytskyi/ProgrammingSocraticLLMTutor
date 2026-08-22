@@ -21,6 +21,8 @@ class OfflineStudentProfileAgent(Agent):
             llm=llm,
             model=model,
             instructions=instructions,
+            reasoning_effort="minimal",
+            max_output_tokens=1500,
         )
 
     def generate(

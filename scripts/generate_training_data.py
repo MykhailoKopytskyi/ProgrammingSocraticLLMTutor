@@ -41,7 +41,21 @@ def student_state_seed():
 def main():
     load_dotenv()
 
-    client = OpenAI(api_key=os.environ["OPENAI_API_KEY"], timeout=180.0)
+    provider = os.getenv("LLM_PROVIDER", "openai")
+    print(provider)
+    if provider == "gemini":
+        client = OpenAI(
+            api_key=os.environ["GEMINI_API_KEY"],
+            base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
+            timeout=180.0,
+        )
+    else:
+        client = OpenAI(
+            api_key=os.environ["OPENAI_API_KEY"],
+            timeout=180.0,
+        )
+
+    # client = OpenAI(api_key=os.environ["OPENAI_API_KEY"], timeout=180.0)
 
     plan_generator = PlanGenerator(
         planner=OfflinePlannerAgent(

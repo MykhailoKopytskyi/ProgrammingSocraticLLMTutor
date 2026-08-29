@@ -8,3 +8,6 @@ __pycache__/
 .pytest_cache
 .ruff_cache
 .agent_full_dump.log
+data/prepared_training/tutor_examples.json
+data/prepared_training/tutor_examples_clean.jsonl
+data/

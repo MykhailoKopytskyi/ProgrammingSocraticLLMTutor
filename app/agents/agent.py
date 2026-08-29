@@ -82,23 +82,61 @@ class Agent(ABC):
     ) -> StructuredOutputT:
         """Request structured output and validate it against a model."""
 
-        request = {
-            "model": self.model,
-            "instructions": self.instructions,
-            "input": prompt,
-            "text_format": output_type,
-        }
-
-        if self.verbosity is not None:
-            request["text"] = {"verbosity": self.verbosity}
-
-        if self.max_output_tokens is not None:
-            request["max_output_tokens"] = self.max_output_tokens
-
-        if self.reasoning_effort:
-            request["reasoning"] = {
-                "effort": self.reasoning_effort,
+        is_gemini = "generativelanguage.googleapis.com" in str(self.llm.base_url)
+        request = {}
+        if is_gemini:
+            effort = self.reasoning_effort
+            if effort == "minimal":
+                effort = "low"
+            request = {
+                "model": self.model,
+                "messages": [
+                    {
+                        "role": "system",
+                        "content": self.instructions,
+                    },
+                    {
+                        "role": "user",
+                        "content": prompt,
+                    },
+                ],
+                "response_format": output_type,
             }
+            if effort:
+                request["reasoning_effort"] = effort
+        else:
+            request = {
+                "model": self.model,
+                "instructions": self.instructions,
+                "input": prompt,
+                "text_format": output_type,
+            }
+            if self.verbosity is not None:
+                request["text"] = {"verbosity": self.verbosity}
+            if self.max_output_tokens is not None:
+                request["max_output_tokens"] = self.max_output_tokens
+            if self.reasoning_effort:
+                request["reasoning"] = {
+                    "effort": self.reasoning_effort,
+                }
+
+        # request = {
+        #     "model": self.model,
+        #     "instructions": self.instructions,
+        #     "input": prompt,
+        #     "text_format": output_type,
+        # }
+
+        # if self.verbosity is not None:
+        #     request["text"] = {"verbosity": self.verbosity}
+
+        # if self.max_output_tokens is not None:
+        #     request["max_output_tokens"] = self.max_output_tokens
+
+        # if self.reasoning_effort:
+        #     request["reasoning"] = {
+        #         "effort": self.reasoning_effort,
+        #     }
 
         print("\n" + "=" * 100, flush=True)
         print(
@@ -144,7 +182,9 @@ class Agent(ABC):
         started = perf_counter()
 
         try:
-            if type(self).__name__ == "OfflineTutorAgent":
+            if is_gemini:
+                response = self.llm.beta.chat.completions.parse(**request)
+            elif type(self).__name__ == "OfflineTutorAgent":
                 print("[TUTOR STREAM] opening", flush=True)
 
                 raw_parts = []
@@ -297,11 +337,15 @@ class Agent(ABC):
 
         print("-" * 100 + "\n", flush=True)
 
-        parsed = getattr(response, "output_parsed", None)
+        if is_gemini:
+            parsed = response.choices[0].message.parsed
+            raw_output = response.choices[0].message.content or ""
+        else:
+            parsed = getattr(response, "output_parsed", None)
+            raw_output = getattr(response, "output_text", "")
 
         if parsed is None:
             raw_output = getattr(response, "output_text", "")
-
             dump_agent(
                 f"{type(self).__name__} PARSE FAILURE",
                 {
@@ -310,7 +354,6 @@ class Agent(ABC):
                     "request": request,
                 },
             )
-
             raise AgentResponseError(
                 "The model returned no parsed structured output. "
                 f"Raw output: {raw_output[:500]}"

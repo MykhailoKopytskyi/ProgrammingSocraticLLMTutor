@@ -12,7 +12,7 @@ from .dialogue_generation import DialogueGenerationError, DialogueGenerator
 from .dialogue_store import DialogueStore
 from .plan_generation import PlanGenerationError, PlanGenerator
 
-MAX_WORKERS = 100
+MAX_WORKERS = 50
 
 
 class TrainingDataGenerator:
@@ -68,7 +68,7 @@ class TrainingDataGenerator:
                         failed.add(dialogue_id)
 
         variants = (
-            # StudentVariant.RECEPTIVE,
+            StudentVariant.RECEPTIVE,
             StudentVariant.UNCERTAIN,
             StudentVariant.PERSISTENT,
         )

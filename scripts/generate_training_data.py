@@ -90,7 +90,7 @@ def main():
 
     generator = TrainingDataGenerator(
         case_store=BenchmarkCaseStore(
-            Path("data/processed/splits/train/benchmark_cases.jsonl")
+            Path("data/processed/splits/validation/benchmark_cases.jsonl")
         ),
         plan_generator=plan_generator,
         profile_agent=OfflineStudentProfileAgent(
@@ -98,8 +98,8 @@ def main():
             model=os.environ["STUDENT_PROFILE_MODEL"],
         ),
         dialogue_generator=dialogue_generator,
-        dialogue_store=DialogueStore(Path("data/generated/dialogues.jsonl")),
-        failed_path=Path("data/generated/failed_dialogues.txt"),
+        dialogue_store=DialogueStore(Path("data/generated/val-dialogues.jsonl")),
+        failed_path=Path("data/generated/val-failed_dialogues.txt"),
         limit=max_cases(),
     )
 

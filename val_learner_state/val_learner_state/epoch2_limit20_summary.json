@@ -1,0 +1,46 @@
+{
+  "n": 20,
+  "correct": 19,
+  "accuracy": 0.95,
+  "parse_rate": 1.0,
+  "non_start_n": 13,
+  "non_start_correct": 12,
+  "non_start_accuracy": 0.9230769230769231,
+  "by_gold_state": {
+    "COMPREHENSION": {
+      "n": 3,
+      "correct": 2,
+      "accuracy": 0.6666666666666666
+    },
+    "CORRECT": {
+      "n": 9,
+      "correct": 9,
+      "accuracy": 1.0
+    },
+    "INCORRECT": {
+      "n": 1,
+      "correct": 1,
+      "accuracy": 1.0
+    },
+    "START": {
+      "n": 7,
+      "correct": 7,
+      "accuracy": 1.0
+    }
+  },
+  "confusion": {
+    "COMPREHENSION": {
+      "COMPREHENSION": 2,
+      "CORRECT": 1
+    },
+    "CORRECT": {
+      "CORRECT": 9
+    },
+    "INCORRECT": {
+      "INCORRECT": 1
+    },
+    "START": {
+      "START": 7
+    }
+  }
+}

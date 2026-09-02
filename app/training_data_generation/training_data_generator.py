@@ -12,7 +12,7 @@ from .dialogue_generation import DialogueGenerationError, DialogueGenerator
 from .dialogue_store import DialogueStore
 from .plan_generation import PlanGenerationError, PlanGenerator
 
-MAX_WORKERS = 50
+MAX_WORKERS = 20
 
 
 class TrainingDataGenerator:

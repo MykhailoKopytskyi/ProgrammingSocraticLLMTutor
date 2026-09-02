@@ -1,0 +1,154 @@
+{
+  "epoch1": {
+    "n": 1126,
+    "correct": 1053,
+    "accuracy": 0.9351687388987566,
+    "parse_rate": 1.0,
+    "non_start_n": 973,
+    "non_start_correct": 900,
+    "non_start_accuracy": 0.9249743062692704,
+    "by_gold_state": {
+      "COMPREHENSION": {
+        "n": 107,
+        "correct": 76,
+        "accuracy": 0.7102803738317757
+      },
+      "CONFUSION": {
+        "n": 94,
+        "correct": 92,
+        "accuracy": 0.9787234042553191
+      },
+      "CORRECT": {
+        "n": 381,
+        "correct": 347,
+        "accuracy": 0.910761154855643
+      },
+      "INCORRECT": {
+        "n": 208,
+        "correct": 203,
+        "accuracy": 0.9759615384615384
+      },
+      "IRRELEVANT": {
+        "n": 54,
+        "correct": 54,
+        "accuracy": 1.0
+      },
+      "QUESTION": {
+        "n": 129,
+        "correct": 128,
+        "accuracy": 0.9922480620155039
+      },
+      "START": {
+        "n": 153,
+        "correct": 153,
+        "accuracy": 1.0
+      }
+    },
+    "confusion": {
+      "COMPREHENSION": {
+        "COMPREHENSION": 76,
+        "CORRECT": 30,
+        "INCORRECT": 1
+      },
+      "CONFUSION": {
+        "CONFUSION": 92,
+        "QUESTION": 2
+      },
+      "CORRECT": {
+        "CORRECT": 347,
+        "COMPREHENSION": 26,
+        "INCORRECT": 8
+      },
+      "INCORRECT": {
+        "INCORRECT": 203,
+        "CORRECT": 5
+      },
+      "IRRELEVANT": {
+        "IRRELEVANT": 54
+      },
+      "QUESTION": {
+        "QUESTION": 128,
+        "CORRECT": 1
+      },
+      "START": {
+        "START": 153
+      }
+    }
+  },
+  "epoch2": {
+    "n": 1126,
+    "correct": 1059,
+    "accuracy": 0.9404973357015985,
+    "parse_rate": 1.0,
+    "non_start_n": 973,
+    "non_start_correct": 906,
+    "non_start_accuracy": 0.9311408016443987,
+    "by_gold_state": {
+      "COMPREHENSION": {
+        "n": 107,
+        "correct": 70,
+        "accuracy": 0.6542056074766355
+      },
+      "CONFUSION": {
+        "n": 94,
+        "correct": 93,
+        "accuracy": 0.9893617021276596
+      },
+      "CORRECT": {
+        "n": 381,
+        "correct": 360,
+        "accuracy": 0.9448818897637795
+      },
+      "INCORRECT": {
+        "n": 208,
+        "correct": 201,
+        "accuracy": 0.9663461538461539
+      },
+      "IRRELEVANT": {
+        "n": 54,
+        "correct": 54,
+        "accuracy": 1.0
+      },
+      "QUESTION": {
+        "n": 129,
+        "correct": 128,
+        "accuracy": 0.9922480620155039
+      },
+      "START": {
+        "n": 153,
+        "correct": 153,
+        "accuracy": 1.0
+      }
+    },
+    "confusion": {
+      "COMPREHENSION": {
+        "COMPREHENSION": 70,
+        "CORRECT": 37
+      },
+      "CONFUSION": {
+        "CONFUSION": 93,
+        "QUESTION": 1
+      },
+      "CORRECT": {
+        "CORRECT": 360,
+        "COMPREHENSION": 19,
+        "INCORRECT": 2
+      },
+      "INCORRECT": {
+        "INCORRECT": 201,
+        "CORRECT": 7
+      },
+      "IRRELEVANT": {
+        "IRRELEVANT": 54
+      },
+      "QUESTION": {
+        "QUESTION": 128,
+        "CORRECT": 1
+      },
+      "START": {
+        "START": 153
+      }
+    }
+  },
+  "better_overall": "epoch2"
+}
